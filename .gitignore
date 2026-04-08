@@ -1,0 +1,65 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+*.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*.sqlite3
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Django stuff
+backend/db.sqlite3
+backend/media
+backend/staticfiles
+
+# Python build files
+build/
+dist/
+.eggs/
+*.egg-info
+
+# Node / React
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+frontend/dist/
+frontend/build/
+
+# Vite cache
+frontend/.vite
+
+# IDE
+.vscode/
+.idea/
+
+# Mac
+.DS_Store
+
+# Coverage
+coverage/
+htmlcov/
+
+# Testing
+.pytest_cache/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
