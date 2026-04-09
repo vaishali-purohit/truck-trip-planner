@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv  # type: ignore[import-untyped]
 
@@ -42,6 +43,14 @@ ALLOWED_HOSTS = [
     for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if h.strip()
 ]
+
+# Render sets RENDER_EXTERNAL_URL (e.g. https://myapp.onrender.com). If
+# DJANGO_ALLOWED_HOSTS omits that hostname, Django returns 400 for every request.
+_render_url = os.getenv("RENDER_EXTERNAL_URL", "").strip()
+if _render_url:
+    _render_host = urlparse(_render_url).hostname
+    if _render_host and _render_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS = [*ALLOWED_HOSTS, _render_host]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

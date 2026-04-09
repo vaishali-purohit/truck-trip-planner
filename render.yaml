@@ -7,3 +7,10 @@ services:
     startCommand: ./render_start.sh
     autoDeploy: true
 
+  - type: static
+    name: truck-trip-planner-web
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+
