@@ -10,25 +10,38 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+from dotenv import load_dotenv  # type: ignore[import-untyped]
+
+load_dotenv()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+def _env_required(name: str) -> str:
+    value = os.getenv(name)
+    if value is None or not str(value).strip():
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return str(value)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-7=h4mrdts20!e$^39u46--#(&dpbdh&ant7*lq_=m-5-_%)bsd"
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+def _env_optional(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s or None
 
 
-# Application definition
+SECRET_KEY = _env_required("DJANGO_SECRET_KEY")
+
+DEBUG = os.getenv("DJANGO_DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"}
+
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -37,10 +50,16 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
+    "rest_framework",
+    "drf_spectacular",
+    "trips",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -68,20 +87,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
     }
 }
-
-
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -98,10 +109,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "UTC"
@@ -110,8 +117,71 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+
+FRONTEND_ORIGIN = _env_required("FRONTEND_ORIGIN")
+CORS_ALLOWED_ORIGINS = [FRONTEND_ORIGIN]
+CSRF_TRUSTED_ORIGINS = [FRONTEND_ORIGIN]
+
+if not DEBUG:
+    # Render/most PaaS terminate TLS at a proxy.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PERMISSION_CLASSES": [
+        "trips.permissions.ApiKeyIfConfigured",
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("DJANGO_THROTTLE_ANON", "60/min"),
+    },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Truck Trip Planner API",
+    "DESCRIPTION": (
+        "Backend API for generating truck trip plans + HOS/ELD log sheets.\n\n"
+        "Notes:\n"
+        "- The trip planning endpoint calls external geocoding/routing services.\n"
+        "- Errors are returned in a consistent `{error, message, ...}` shape.\n"
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
+if DEBUG:
+    GEOCODER_NOMINATIM_BASE_URL = os.getenv(
+        "GEOCODER_NOMINATIM_BASE_URL",
+        "https://nominatim.openstreetmap.org",
+    ).strip()
+    GEOCODER_USER_AGENT = os.getenv(
+        "GEOCODER_USER_AGENT",
+        "truck-trip-planner/1.0 (dev)",
+    ).strip()
+    ROUTER_OSRM_BASE_URL = os.getenv(
+        "ROUTER_OSRM_BASE_URL",
+        "https://router.project-osrm.org",
+    ).strip()
+else:
+    GEOCODER_NOMINATIM_BASE_URL = _env_required("GEOCODER_NOMINATIM_BASE_URL")
+    GEOCODER_USER_AGENT = _env_required("GEOCODER_USER_AGENT")
+    ROUTER_OSRM_BASE_URL = _env_required("ROUTER_OSRM_BASE_URL")
+
+LOCATION_SEARCH_TIMEOUT_SECONDS = float(os.getenv("LOCATION_SEARCH_TIMEOUT_SECONDS", "8"))
+
+# Optional: if set, require clients to send X-API-Key for all API calls.
+API_KEY = _env_optional("API_KEY")
