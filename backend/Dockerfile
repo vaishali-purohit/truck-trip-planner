@@ -1,3 +1,5 @@
+# Build context must be the repository root (e.g. Render with Dockerfile path
+# `backend/Dockerfile` and root directory unset): `docker build -f backend/Dockerfile .`
 FROM python:3.12-slim-bookworm
 
 WORKDIR /app
@@ -6,11 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r requirements.txt
 
-COPY . .
+COPY backend/ .
 
 ENV PORT=8000
 EXPOSE 8000
