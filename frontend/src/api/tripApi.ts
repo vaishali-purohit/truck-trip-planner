@@ -38,9 +38,9 @@ export async function listTrips(): Promise<TripSummary[]> {
   return items.map((w) => unwrapTrip<TripSummary>(w));
 }
 
-export async function getTripById(id: string): Promise<TripDetails> {
+export async function getTripByTripNo(tripNo: number): Promise<TripDetails> {
   const res = await axios.get(
-    `${env.apiUrl}/api/trip/${id}/`,
+    `${env.apiUrl}/api/trip/${tripNo}/`,
     env.apiKey ? { headers: { "X-API-Key": env.apiKey } } : undefined,
   );
   return unwrapTrip<TripDetails>(res.data as TripWrapper<TripDetails>);

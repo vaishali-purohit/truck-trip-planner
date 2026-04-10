@@ -16,6 +16,10 @@ export interface TripRoute {
   };
   pickupLngLat: LngLat;
   dropoffLngLat: LngLat;
+  /** Human-readable place for pickup coordinates (e.g. City, ST). */
+  pickupLocationName?: string;
+  /** Human-readable place for drop-off coordinates (e.g. City, ST). */
+  dropoffLocationName?: string;
 }
 
 export interface TripSummary {
@@ -55,12 +59,19 @@ export interface EldLogSegment {
   fromHour: number;
   toHour: number;
   label?: string;
+  /** Place line for remarks (e.g. city, ST). */
+  location?: string;
 }
 
 export interface EldLogSheet {
   dateISO: string;
   dutyTotals: DutyStatusTotals;
   segments?: EldLogSegment[];
+  /** 1-based day number within the trip. */
+  dayIndex?: number;
+  fromLocation?: string;
+  toLocation?: string;
+  totalMilesDrivingToday?: number;
 }
 
 export interface TripInputs {
@@ -84,6 +95,8 @@ export interface TripDetails extends TripSummary {
   dutyTotals: DutyStatusTotals;
   estimatedArrivalISO: string;
   stopsCount: number;
+  /** Number of daily EOD log sheets (driving days). */
+  totalLogDays?: number;
   route?: TripRoute;
   stopPlan?: TripStopPlan;
   routeInstructions?: RouteInstruction[];

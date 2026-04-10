@@ -211,7 +211,8 @@ export async function exportTripPdf(trip: TripDetails) {
 
   let y = margin;
 
-  const title = `Trip Export — ${trip.id}`;
+  const tripNoLabel = trip.tripNo != null ? String(trip.tripNo) : "unknown";
+  const title = `Trip Export — ${tripNoLabel}`;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
   doc.text(title, margin, y);
@@ -250,7 +251,7 @@ export async function exportTripPdf(trip: TripDetails) {
   section("Summary");
   ensureSpace(120);
   const summaryLines = [
-    `Trip ID: ${trip.id}`,
+    `Trip No.: ${trip.tripNo != null ? String(trip.tripNo) : "—"}`,
     `Date: ${formatDateOnly(trip.dateISO)}`,
     `Driver: ${safeText(trip.driverName)}`,
     `Truck / Trailer: ${trip.truckId}${trip.trailerId ? ` / ${trip.trailerId}` : ""}`,
@@ -313,6 +314,6 @@ export async function exportTripPdf(trip: TripDetails) {
     y += 16;
   }
 
-  doc.save(`${trip.id}.pdf`);
+  doc.save(`trip-${tripNoLabel}.pdf`);
 }
 

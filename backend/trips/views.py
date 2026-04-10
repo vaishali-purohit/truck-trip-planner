@@ -146,19 +146,19 @@ class TripListView(APIView):
 
 class TripDetailView(APIView):
     """
-    GET /api/trip/<uuid>/
-    Returns the planned TripDetails payload.
+    GET /api/trip/<trip_no>/
+    Returns the planned TripDetails payload (lookup by public trip number).
     """
 
     @extend_schema(
-        operation_id="getTripById",
-        summary="Fetch a single trip plan by id",
+        operation_id="getTripByTripNo",
+        summary="Fetch a single trip plan by trip number",
         parameters=[
             OpenApiParameter(
-                name="trip_id",
-                type=str,
+                name="trip_no",
+                type=int,
                 location=OpenApiParameter.PATH,
-                description="Trip UUID.",
+                description="Public trip number (tripNo).",
             )
         ],
         responses={
@@ -166,9 +166,9 @@ class TripDetailView(APIView):
             404: OpenApiResponse(description="Trip not found.", response=ApiErrorSerializer),
         },
     )
-    def get(self, request, trip_id):
+    def get(self, request, trip_no):
         try:
-            t = TripPlan.objects.get(id=trip_id)
+            t = TripPlan.objects.get(trip_no=trip_no)
         except TripPlan.DoesNotExist:
             return Response(
                 {"error": "not_found", "message": "Trip not found"},

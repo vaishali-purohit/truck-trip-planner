@@ -21,6 +21,7 @@ import PageHeader from "../components/common/PageHeader";
 import TripCard from "../components/trips/TripCard";
 import type { TripSummary } from "../types/trip";
 import { listTrips } from "../api/tripApi";
+import { tripOverviewPath } from "../utils/tripRoutes";
 
 function sumMiles(trips: TripSummary[]) {
   return trips.reduce((acc, t) => acc + t.totalDistanceMi, 0);
@@ -80,7 +81,7 @@ export default function TripHistoryPage() {
     if (q) {
       next = next.filter((t) => {
         const haystack = [
-          t.id,
+          t.tripNo != null ? String(t.tripNo) : "",
           t.driverName,
           `${t.pickup.city} ${t.pickup.state}`,
           `${t.dropoff.city} ${t.dropoff.state}`,
@@ -101,6 +102,9 @@ export default function TripHistoryPage() {
     const cmpNewestFirst = (a: TripSummary, b: TripSummary) => {
       const byDate = b.dateISO.localeCompare(a.dateISO);
       if (byDate !== 0) return byDate;
+      if (a.tripNo != null && b.tripNo != null && a.tripNo !== b.tripNo) {
+        return b.tripNo - a.tripNo;
+      }
       return String(b.id).localeCompare(String(a.id));
     };
 
@@ -255,7 +259,7 @@ export default function TripHistoryPage() {
             <TripCard
               key={trip.id}
               trip={trip}
-              onViewDetails={(id) => navigate(`/overview/${id}`)}
+              onViewDetails={(tripNo) => navigate(tripOverviewPath(tripNo))}
             />
           ))
         )}

@@ -16,7 +16,7 @@ export default function LabeledValue({
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+      <Typography variant="body2" sx={{ fontWeight: 700, overflowWrap: "anywhere", wordBreak: "break-word" }}>
         {value}
       </Typography>
     </Stack>

@@ -3,15 +3,22 @@ import SectionCard from "../common/SectionCard";
 import DotRow from "../common/DotRow";
 import type { TripDetails } from "../../types/trip";
 
-export default function DailyStatusTotalsCard({ dutyTotals }: { dutyTotals: TripDetails["dutyTotals"] }) {
+export default function DailyStatusTotalsCard({
+  dutyTotals,
+  dayNumber,
+}: {
+  dutyTotals: TripDetails["dutyTotals"];
+  /** 1-based day index (matches day tabs). */
+  dayNumber: number;
+}) {
   const total =
     dutyTotals.offDutyHours + dutyTotals.sleeperBerthHours + dutyTotals.drivingHours + dutyTotals.onDutyHours;
 
   return (
     <SectionCard sx={{ flex: { lg: "0 0 auto" } }}>
       <Stack spacing={1.5}>
-        <Typography variant="overline" sx={{ fontWeight: 900 }}>
-          Daily Status Totals
+        <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
+          Day-{dayNumber} Status Totals
         </Typography>
         <Divider />
         <Stack spacing={1.25}>

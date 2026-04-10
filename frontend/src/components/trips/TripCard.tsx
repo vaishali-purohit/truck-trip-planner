@@ -16,13 +16,14 @@ import type { TripSummary } from "../../types/trip";
 import SectionCard from "../common/SectionCard";
 import LabeledValue from "../common/LabeledValue";
 import TripStatusChips from "./TripStatusChips";
-import { getTripById } from "../../api/tripApi";
+import { getTripByTripNo } from "../../api/tripApi";
 import { exportTripPdf } from "../../utils/exportTripPdf";
 import { formatDateISOShort, formatStop } from "../../utils/tripFormat";
+import { tripLogsPath } from "../../utils/tripRoutes";
 
 export interface TripCardProps {
   trip: TripSummary;
-  onViewDetails: (id: string) => void;
+  onViewDetails: (tripNo: number) => void;
 }
 
 export default function TripCard({ trip, onViewDetails }: TripCardProps) {
@@ -44,10 +45,10 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
         >
           <Box>
             <Typography variant="overline" color="text.secondary">
-              Trip ID
+              Trip No.
             </Typography>
             <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
-              {trip.tripNo ?? trip.id}
+              {trip.tripNo != null ? String(trip.tripNo) : "—"}
             </Typography>
           </Box>
 
@@ -136,7 +137,11 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
               size="small"
               startIcon={<VisibilityOutlinedIcon />}
               variant="contained"
-              onClick={() => onViewDetails(trip.id)}
+              disabled={trip.tripNo == null}
+              onClick={() => {
+                if (trip.tripNo == null) return;
+                onViewDetails(trip.tripNo);
+              }}
             >
               View Details
             </Button>
@@ -145,7 +150,11 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
               size="small"
               startIcon={<DescriptionOutlinedIcon />}
               variant="outlined"
-              onClick={() => navigate(`/overview/${trip.id}/logs`)}
+              disabled={trip.tripNo == null}
+              onClick={() => {
+                if (trip.tripNo == null) return;
+                navigate(tripLogsPath(trip.tripNo));
+              }}
             >
               View Driver Logs
             </Button>
@@ -153,8 +162,10 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
               size="small"
               startIcon={<PictureAsPdfOutlinedIcon />}
               variant="outlined"
+              disabled={trip.tripNo == null}
               onClick={async () => {
-                const details = await getTripById(trip.id);
+                if (trip.tripNo == null) return;
+                const details = await getTripByTripNo(trip.tripNo);
                 await exportTripPdf(details);
               }}
             >

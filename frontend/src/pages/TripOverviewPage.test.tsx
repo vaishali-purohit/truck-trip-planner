@@ -14,9 +14,6 @@ vi.mock("../components/map/RouteMapPanel", () => ({
 }));
 
 // Keep tests focused: stub purely presentational cards.
-vi.mock("../components/overview/SystemAssumptionsCard", () => ({
-  default: () => <div />,
-}));
 vi.mock("../components/overview/DailyStatusTotalsCard", () => ({
   default: () => <div />,
 }));
@@ -36,17 +33,17 @@ vi.mock("../api/locationApi", () => ({
 }));
 
 const createTripPlan = vi.fn();
-const getTripById = vi.fn();
+const getTripByTripNo = vi.fn();
 
 vi.mock("../api/tripApi", () => ({
   createTripPlan: (...args: unknown[]) => createTripPlan(...args),
-  getTripById: (...args: unknown[]) => getTripById(...args),
+  getTripByTripNo: (...args: unknown[]) => getTripByTripNo(...args),
 }));
 
 import TripOverviewPage from "./TripOverviewPage";
 
 describe("TripOverviewPage", () => {
-  it("renders draft header when no tripId", async () => {
+  it("renders draft header when no trip number in URL", async () => {
     render(
       <MemoryRouter initialEntries={["/overview"]}>
         <Routes>
@@ -60,8 +57,8 @@ describe("TripOverviewPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("loads trip when tripId is present", async () => {
-    getTripById.mockResolvedValueOnce({
+  it("loads trip when trip number is present in URL", async () => {
+    getTripByTripNo.mockResolvedValueOnce({
       id: "abc",
       tripNo: 1900,
       dateISO: "2026-01-01",
@@ -85,21 +82,22 @@ describe("TripOverviewPage", () => {
     });
 
     render(
-      <MemoryRouter initialEntries={["/overview/abc"]}>
+      <MemoryRouter initialEntries={["/overview/1900"]}>
         <Routes>
-          <Route path="/overview/:tripId" element={<TripOverviewPage />} />
+          <Route path="/overview/:tripNo" element={<TripOverviewPage />} />
         </Routes>
       </MemoryRouter>,
     );
 
     expect(await screen.findByText(/Trip Plan & HOS Overview/i)).toBeInTheDocument();
-    expect(getTripById).toHaveBeenCalledWith("abc");
+    expect(getTripByTripNo).toHaveBeenCalledWith(1900);
     expect(await screen.findByText("1900")).toBeInTheDocument();
   });
 
   it("submits createTripPlan when user clicks Generate", async () => {
     createTripPlan.mockResolvedValueOnce({
       id: "new-id",
+      tripNo: 2001,
       dateISO: "2026-01-01",
       pickup: { city: "Chicago", state: "IL" },
       dropoff: { city: "Denver", state: "CO" },
@@ -124,7 +122,7 @@ describe("TripOverviewPage", () => {
       <MemoryRouter initialEntries={["/overview"]}>
         <Routes>
           <Route path="/overview" element={<TripOverviewPage />} />
-          <Route path="/overview/:tripId" element={<div data-testid="nav-ok" />} />
+          <Route path="/overview/:tripNo" element={<div data-testid="nav-ok" />} />
         </Routes>
       </MemoryRouter>,
     );

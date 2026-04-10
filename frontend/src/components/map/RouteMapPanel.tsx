@@ -16,16 +16,34 @@ import Map, {
 } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-import type { DutyStatusTotals, TripRoute, TripStop } from "../../types/trip";
-import { buildDutyRouteSegments, midpointAlongLine } from "../../utils/routeDutyGeometry";
+import type { DutyStatusTotals, EldLogSegment, TripRoute, TripStop } from "../../types/trip";
+import { buildFourDutyStatusMarkers, sliceRouteByFractionRange } from "../../utils/routeDutyGeometry";
+import {
+  formatLocationAlongFractionRangeWindow,
+  formatLocationAlongFullRoute,
+} from "../../utils/tripRoutePlace";
 import { env } from "../../config/env";
 import { MAPBOX_DEFAULT_STYLE_DARK, MAPBOX_DEFAULT_STYLE_LIGHT } from "../../config/constants";
+
 export interface RouteMapPanelProps {
   route?: TripRoute;
   dutyTotals?: DutyStatusTotals;
   dateISO?: string;
   pickup?: TripStop;
   dropoff?: TripStop;
+  /** When set with `dayRouteMode`, only this slice of the polyline is drawn and fitted. */
+  routeProgress?: { start: number; end: number };
+  /** Per-day ELD segments → one dot per status block in time order (Off Duty, Driving, …). */
+  eldSegments?: EldLogSegment[];
+  /** If true: show only the day's route slice + day endpoints (not full-trip pickup/dropoff). */
+  dayRouteMode?: boolean;
+  /** Labels for the two ends of the day's route slice (Record of Duty Status From/To). */
+  dayStartLabel?: string;
+  dayEndLabel?: string;
+  /**
+   * Grow to fill a flex parent (e.g. draft overview) instead of using a fixed min-height floor.
+   */
+  fillViewport?: boolean;
 }
 
 const routeLineLayer: LayerProps = {
@@ -49,6 +67,13 @@ function formatStopLabel(s: TripStop) {
   return `${s.city}, ${s.state}`;
 }
 
+/** Lat/lon for map popups (WGS84). */
+function formatLatLonLine(lat: number, lng: number): string {
+  const la = Number.isFinite(lat) ? lat.toFixed(5) : "—";
+  const lo = Number.isFinite(lng) ? lng.toFixed(5) : "—";
+  return `Lat ${la}, Lon ${lo}`;
+}
+
 function formatDutyClockWindow(dateISO: string, startHour: number, endHour: number): string {
   const base = new Date(`${dateISO}T00:00:00`);
   const a = new Date(base.getTime() + startHour * 3600 * 1000);
@@ -57,25 +82,18 @@ function formatDutyClockWindow(dateISO: string, startHour: number, endHour: numb
   return `${a.toLocaleTimeString(undefined, opt)} – ${b.toLocaleTimeString(undefined, opt)}`;
 }
 
-function locationAlongRoute(
-  t: number,
-  pickup: TripStop | undefined,
-  dropoff: TripStop | undefined,
-): string {
-  if (pickup && dropoff) {
-    if (t <= 0.2) return formatStopLabel(pickup);
-    if (t >= 0.8) return formatStopLabel(dropoff);
-    return `En route · ${formatStopLabel(pickup)} → ${formatStopLabel(dropoff)}`;
-  }
-  return "En route";
-}
-
 export default function RouteMapPanel({
   route,
   dutyTotals,
   dateISO,
   pickup,
   dropoff,
+  routeProgress,
+  eldSegments,
+  dayRouteMode,
+  dayStartLabel,
+  dayEndLabel,
+  fillViewport = false,
 }: RouteMapPanelProps) {
   const theme = useTheme();
   const mapRef = useRef<MapRef | null>(null);
@@ -97,38 +115,90 @@ export default function RouteMapPanel({
   const mapStyle = theme.palette.mode === "dark" ? darkStyle : lightStyle;
 
   const coords = route?.line?.coordinates;
-  const dutySegments = useMemo(() => {
-    if (!coords?.length || coords.length < 2 || !dutyTotals) return [];
-    return buildDutyRouteSegments(coords, dutyTotals);
-  }, [coords, dutyTotals]);
+
+  const daySliceCoords = useMemo(() => {
+    if (!coords?.length || coords.length < 2 || !routeProgress || !dayRouteMode) return null;
+    const slice = sliceRouteByFractionRange(coords, routeProgress);
+    return slice.length >= 2 ? slice : null;
+  }, [coords, dayRouteMode, routeProgress]);
+
+  const lineCoordinates = useMemo(() => {
+    if (daySliceCoords) return daySliceCoords;
+    return coords?.length && coords.length >= 2 ? coords : null;
+  }, [coords, daySliceCoords]);
 
   const dutyDotsGeoJson = useMemo(() => {
-    if (!dutySegments.length) return null;
+    if (!coords?.length || coords.length < 2 || !dutyTotals) return null;
+
+    let markers: Array<{
+      coordinates: [number, number];
+      label: string;
+      color: string;
+      fromHour: number;
+      toHour: number;
+      pathMidFraction: number;
+      location?: string;
+    }> = [];
+
+    const routeSpan =
+      dayRouteMode && routeProgress ? routeProgress : { start: 0 as number, end: 1 as number };
+    const eldForMarkers = dayRouteMode && eldSegments?.length ? eldSegments : null;
+    markers = buildFourDutyStatusMarkers(coords, dutyTotals, routeSpan, eldForMarkers).map((m) => ({
+      coordinates: m.coordinates as [number, number],
+      label: m.label,
+      color: m.color,
+      fromHour: m.fromHour,
+      toHour: m.toHour,
+      pathMidFraction: m.pathMidFraction,
+      location: m.location,
+    }));
+
+    if (!markers.length) return null;
+
     return {
       type: "FeatureCollection" as const,
-      features: dutySegments
-        .filter((s) => s.hours > 0 && s.coordinates.length >= 2)
-        .map((s) => {
-          const timeStr =
-            dateISO != null && dateISO.length >= 8
-              ? formatDutyClockWindow(dateISO, s.startHour, s.endHour)
-              : `${s.startHour.toFixed(2)}h – ${s.endHour.toFixed(2)}h`;
-          return {
-            type: "Feature" as const,
-            properties: {
-              dotColor: s.color,
-              detailType: s.label,
-              detailTime: timeStr,
-              detailLocation: locationAlongRoute(s.pathMidFraction, pickup, dropoff),
-            },
-            geometry: {
-              type: "Point" as const,
-              coordinates: midpointAlongLine(s.coordinates),
-            },
-          };
-        }),
+      features: markers.map((m) => {
+        const timeStr =
+          dateISO != null && dateISO.length >= 8
+            ? formatDutyClockWindow(dateISO, m.fromHour, m.toHour)
+            : `${m.fromHour.toFixed(2)}h – ${m.toHour.toFixed(2)}h`;
+        return {
+          type: "Feature" as const,
+          properties: {
+            dotColor: m.color,
+            detailType: m.label,
+            detailTime: timeStr,
+            detailLocation:
+              m.location?.trim()
+                ? m.location.trim()
+                : dayRouteMode && routeProgress && dayStartLabel && dayEndLabel
+                  ? formatLocationAlongFractionRangeWindow(
+                      m.pathMidFraction,
+                      routeProgress,
+                      dayStartLabel,
+                      dayEndLabel,
+                    )
+                  : formatLocationAlongFullRoute(m.pathMidFraction, pickup, dropoff),
+          },
+          geometry: {
+            type: "Point" as const,
+            coordinates: m.coordinates,
+          },
+        };
+      }),
     };
-  }, [dateISO, dutySegments, dropoff, pickup]);
+  }, [
+    coords,
+    dateISO,
+    dayEndLabel,
+    dayRouteMode,
+    dayStartLabel,
+    dutyTotals,
+    dropoff,
+    eldSegments,
+    pickup,
+    routeProgress,
+  ]);
 
   const pickupLngLat = route?.pickupLngLat;
   const dropoffLngLat = route?.dropoffLngLat;
@@ -136,40 +206,91 @@ export default function RouteMapPanel({
   const dropoffDotColor = theme.palette.error.main;
 
   const stopsGeoJson = useMemo(() => {
-    if (!pickupLngLat && !dropoffLngLat) return null;
     const features: Array<{
       type: "Feature";
       properties: Record<string, string>;
       geometry: { type: "Point"; coordinates: [number, number] };
     }> = [];
-    if (pickupLngLat) {
+
+    if (dayRouteMode && daySliceCoords?.length && dayStartLabel && dayEndLabel) {
+      const a = daySliceCoords[0]!;
+      const b = daySliceCoords[daySliceCoords.length - 1]!;
       features.push({
         type: "Feature",
         properties: {
           dotColor: pickupDotColor,
-          detailType: "Pickup",
+          detailType: "Day start (From)",
           detailTime: "",
-          detailLocation: pickup ? formatStopLabel(pickup) : "Pickup",
+          detailLocation: dayStartLabel,
         },
-        geometry: { type: "Point", coordinates: pickupLngLat },
+        geometry: { type: "Point", coordinates: [a[0], a[1]] },
       });
-    }
-    if (dropoffLngLat) {
       features.push({
         type: "Feature",
         properties: {
           dotColor: dropoffDotColor,
-          detailType: "Drop-off",
+          detailType: "Day end (To)",
           detailTime: "",
-          detailLocation: dropoff ? formatStopLabel(dropoff) : "Drop-off",
+          detailLocation: dayEndLabel,
         },
-        geometry: { type: "Point", coordinates: dropoffLngLat },
+        geometry: { type: "Point", coordinates: [b[0], b[1]] },
       });
+    } else {
+      if (pickupLngLat) {
+        const name =
+          route?.pickupLocationName?.trim() ||
+          (pickup ? formatStopLabel(pickup) : "Pickup");
+        features.push({
+          type: "Feature",
+          properties: {
+            dotColor: pickupDotColor,
+            detailType: "Pickup",
+            detailTime: "",
+            detailLocation: name,
+          },
+          geometry: { type: "Point", coordinates: pickupLngLat },
+        });
+      }
+      if (dropoffLngLat) {
+        const name =
+          route?.dropoffLocationName?.trim() ||
+          (dropoff ? formatStopLabel(dropoff) : "Drop-off");
+        features.push({
+          type: "Feature",
+          properties: {
+            dotColor: dropoffDotColor,
+            detailType: "Drop-off",
+            detailTime: "",
+            detailLocation: name,
+          },
+          geometry: { type: "Point", coordinates: dropoffLngLat },
+        });
+      }
     }
-    return { type: "FeatureCollection" as const, features };
-  }, [dropoff, pickup, dropoffDotColor, dropoffLngLat, pickupDotColor, pickupLngLat]);
+
+    return features.length ? { type: "FeatureCollection" as const, features } : null;
+  }, [
+    dayEndLabel,
+    dayRouteMode,
+    daySliceCoords,
+    dayStartLabel,
+    dropoff,
+    dropoffDotColor,
+    dropoffLngLat,
+    pickup,
+    pickupDotColor,
+    pickupLngLat,
+    route?.dropoffLocationName,
+    route?.pickupLocationName,
+  ]);
 
   const initialViewState = useMemo(() => {
+    const line = lineCoordinates;
+    if (line?.length) {
+      const mid = Math.floor(line.length / 2);
+      const [lng, lat] = line[mid]!;
+      return { longitude: lng, latitude: lat, zoom: dayRouteMode ? 7 : 6 };
+    }
     if (route?.pickupLngLat) {
       return {
         longitude: route.pickupLngLat[0],
@@ -178,24 +299,24 @@ export default function RouteMapPanel({
       };
     }
     return { longitude: -96.8, latitude: 37.8, zoom: 3 };
-  }, [route]);
+  }, [dayRouteMode, lineCoordinates, route?.pickupLngLat]);
 
   const fitRouteBounds = useCallback(() => {
-    if (!route?.line?.coordinates?.length) return;
-    const allPts = route.line.coordinates;
-    const lons = allPts.map((c) => c[0]);
-    const lats = allPts.map((c) => c[1]);
+    const pts = lineCoordinates;
+    if (!pts?.length) return;
+    const lons = pts.map((c) => c[0]);
+    const lats = pts.map((c) => c[1]);
     const bounds: [[number, number], [number, number]] = [
       [Math.min(...lons), Math.min(...lats)],
       [Math.max(...lons), Math.max(...lats)],
     ];
     mapRef.current?.resize();
-    mapRef.current?.fitBounds(bounds, { padding: 60, duration: 650, maxZoom: 10 });
-  }, [route]);
+    mapRef.current?.fitBounds(bounds, { padding: 60, duration: 650, maxZoom: dayRouteMode ? 11 : 10 });
+  }, [dayRouteMode, lineCoordinates]);
 
   useEffect(() => {
     if (!mapLoaded) return;
-    if (!route?.line?.coordinates?.length) return;
+    if (!lineCoordinates?.length) return;
     let cancelled = false;
     let tries = 0;
 
@@ -223,31 +344,34 @@ export default function RouteMapPanel({
     return () => {
       cancelled = true;
     };
-  }, [fitRouteBounds, mapLoaded, route?.line?.coordinates?.length]);
+  }, [fitRouteBounds, lineCoordinates?.length, mapLoaded]);
 
-  const handleMapMouseMove = useCallback((e: MapMouseEvent) => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    const layers: string[] = [];
-    if (dutyDotsGeoJson?.features.length) layers.push(LAYER_DUTY_DOTS);
-    if (stopsGeoJson?.features.length) layers.push(LAYER_STOPS);
-    if (!layers.length) {
-      setHoverTip(null);
-      return;
-    }
-    const feats = map.queryRenderedFeatures(e.point, { layers });
-    const f = feats[0];
-    const t = f?.properties?.detailType;
-    const g = f?.geometry;
-    if (typeof t === "string" && g && g.type === "Point" && Array.isArray(g.coordinates)) {
-      const [lng, lat] = g.coordinates as [number, number];
-      const time = typeof f.properties?.detailTime === "string" ? f.properties.detailTime : "";
-      const loc = typeof f.properties?.detailLocation === "string" ? f.properties.detailLocation : "";
-      setHoverTip({ lng, lat, type: t, time, location: loc });
-    } else {
-      setHoverTip(null);
-    }
-  }, [dutyDotsGeoJson?.features.length, stopsGeoJson?.features.length]);
+  const handleMapMouseMove = useCallback(
+    (e: MapMouseEvent) => {
+      const map = mapRef.current?.getMap();
+      if (!map) return;
+      const layers: string[] = [];
+      if (dutyDotsGeoJson?.features.length) layers.push(LAYER_DUTY_DOTS);
+      if (stopsGeoJson?.features.length) layers.push(LAYER_STOPS);
+      if (!layers.length) {
+        setHoverTip(null);
+        return;
+      }
+      const feats = map.queryRenderedFeatures(e.point, { layers });
+      const f = feats[0];
+      const t = f?.properties?.detailType;
+      const g = f?.geometry;
+      if (typeof t === "string" && g && g.type === "Point" && Array.isArray(g.coordinates)) {
+        const [lng, lat] = g.coordinates as [number, number];
+        const time = typeof f.properties?.detailTime === "string" ? f.properties.detailTime : "";
+        const loc = typeof f.properties?.detailLocation === "string" ? f.properties.detailLocation : "";
+        setHoverTip({ lng, lat, type: t, time, location: loc });
+      } else {
+        setHoverTip(null);
+      }
+    },
+    [dutyDotsGeoJson?.features.length, stopsGeoJson?.features.length],
+  );
 
   const clearHover = useCallback(() => setHoverTip(null), []);
 
@@ -259,27 +383,41 @@ export default function RouteMapPanel({
   }, [dutyDotsGeoJson?.features.length, stopsGeoJson?.features.length]);
 
   const legendItems = useMemo(() => {
-    if (dutyTotals) {
+    if (!dutyTotals) {
       return [
-        { label: "Off Duty", color: "#9CA3AF" },
-        { label: "Sleeper Berth", color: "#3B82F6" },
-        { label: "Driving", color: "#10B981" },
-        { label: "On Duty", color: "#F59E0B" },
+        { label: "Route", color: "#2E7DFF" },
+        { label: "Pickup", color: theme.palette.success.main },
+        { label: "Drop-off", color: theme.palette.error.main },
       ];
     }
-    return [
-      { label: "Route", color: "#2E7DFF" },
-      { label: "Pickup", color: theme.palette.success.main },
-      { label: "Drop-off", color: theme.palette.error.main },
+
+    const rows: Array<{ label: string; color: string }> = [
+      { label: "Off Duty", color: "#9CA3AF" },
+      { label: "Sleeper Berth", color: "#3B82F6" },
+      { label: "Driving", color: "#10B981" },
+      { label: "On Duty", color: "#F59E0B" },
     ];
+
+    return rows.map(({ label, color }) => ({ label, color }));
   }, [dutyTotals, theme.palette.error.main, theme.palette.success.main]);
+
+  const routeGeoJson = useMemo(() => {
+    if (!lineCoordinates?.length) return null;
+    return {
+      type: "Feature" as const,
+      properties: {},
+      geometry: { type: "LineString" as const, coordinates: lineCoordinates },
+    };
+  }, [lineCoordinates]);
 
   return (
     <SectionCard
       padded={false}
       sx={{
         height: "100%",
-        minHeight: { xs: 380, md: 520 },
+        ...(fillViewport
+          ? { flex: 1, minHeight: 0 }
+          : { minHeight: { xs: 380, md: 520 } }),
       }}
     >
       <Box
@@ -293,14 +431,28 @@ export default function RouteMapPanel({
           gap: 1,
         }}
       >
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <MapOutlinedIcon color="action" />
-          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-            Route Map
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1, columnGap: 1, minWidth: 0, width: "100%" }}
+        >
+          <MapOutlinedIcon color="action" sx={{ flexShrink: 0 }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, minWidth: 0, flex: { xs: "1 1 100%", sm: "0 1 auto" } }}>
+            {dayRouteMode ? "Route Map — selected day" : "Route Map"}
           </Typography>
-          <Box sx={{ flex: 1 }} />
+          <Box sx={{ flex: { xs: "none", sm: 1 }, minWidth: 0, display: { xs: "none", sm: "block" } }} />
 
-          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Stack
+            direction="row"
+            spacing={1.25}
+            sx={{
+              alignItems: "center",
+              flexWrap: "wrap",
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+              flex: { xs: "1 1 100%", sm: "0 1 auto" },
+              minWidth: 0,
+            }}
+          >
             {legendItems.map((item) => (
               <LegendDot key={item.label} label={item.label} color={item.color} />
             ))}
@@ -365,12 +517,8 @@ export default function RouteMapPanel({
               <NavigationControl position="top-left" showCompass={false} />
               <FullscreenControl position="top-right" />
 
-              {route?.line?.coordinates?.length ? (
-                <Source
-                  id="route"
-                  type="geojson"
-                  data={{ type: "Feature", properties: {}, geometry: route.line }}
-                >
+              {routeGeoJson ? (
+                <Source id="route-display" type="geojson" data={routeGeoJson}>
                   <Layer {...routeLineLayer} />
                 </Source>
               ) : null}
@@ -438,8 +586,17 @@ export default function RouteMapPanel({
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4 }}>
                       Location
                     </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 700, display: "block", lineHeight: 1.35, whiteSpace: "pre-line" }}
+                    >
+                      {hoverTip.location.trim() ? hoverTip.location : "—"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4, mt: 0.5 }}>
+                      Coordinates
+                    </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 700, display: "block", lineHeight: 1.35 }}>
-                      {hoverTip.location}
+                      {formatLatLonLine(hoverTip.lat, hoverTip.lng)}
                     </Typography>
                   </Box>
                 </Popup>
@@ -485,7 +642,11 @@ function LegendDot({ label, color }: { label: string; color: string }) {
           flexShrink: 0,
         }}
       />
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, whiteSpace: "nowrap" }}>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ fontWeight: 700, whiteSpace: { xs: "normal", sm: "nowrap" }, lineHeight: 1.2 }}
+      >
         {label}
       </Typography>
     </Stack>

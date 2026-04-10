@@ -6,7 +6,7 @@ vi.mock("../config/env", () => ({
   env: { apiUrl: "http://example.test" },
 }));
 
-import { createTripPlan, getTripById, listTrips } from "./tripApi";
+import { createTripPlan, getTripByTripNo, listTrips } from "./tripApi";
 
 describe("tripApi", () => {
   it("createTripPlan POSTs and returns response body", async () => {
@@ -44,14 +44,15 @@ describe("tripApi", () => {
     mock.restore();
   });
 
-  it("getTripById GETs and returns response body", async () => {
+  it("getTripByTripNo GETs and returns response body", async () => {
     const mock = new AxiosMockAdapter(axios);
     mock
-      .onGet("http://example.test/api/trip/abc/")
+      .onGet("http://example.test/api/trip/1900/")
       .reply(200, { id: "abc", tripNo: 1900, createdAt: "2026-04-09T00:00:00Z", result: {} });
 
-    const data = await getTripById("abc");
+    const data = await getTripByTripNo(1900);
     expect(data.id).toBe("abc");
+    expect(data.tripNo).toBe(1900);
     mock.restore();
   });
 });

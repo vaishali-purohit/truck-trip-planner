@@ -128,19 +128,24 @@ class TestTripApi(APITestCase):
         self.assertIn("createdAt", res.data[0])
         self.assertIn("result", res.data[0])
 
-        res2 = self.client.get(reverse("trip-detail", kwargs={"trip_id": str(t1.id)}))
+        res2 = self.client.get(reverse("trip-detail", kwargs={"trip_no": t1.trip_no}))
         self.assertEqual(res2.status_code, status.HTTP_200_OK)
         self.assertEqual(res2.data["id"], str(t1.id))
         self.assertEqual(res2.data["tripNo"], t1.trip_no)
         self.assertIn("createdAt", res2.data)
         self.assertIn("result", res2.data)
 
-        res3 = self.client.get(reverse("trip-detail", kwargs={"trip_id": str(t2.id)}))
+        res3 = self.client.get(reverse("trip-detail", kwargs={"trip_no": t2.trip_no}))
         self.assertEqual(res3.status_code, status.HTTP_200_OK)
         self.assertEqual(res3.data["id"], str(t2.id))
         self.assertEqual(res3.data["tripNo"], t2.trip_no)
         self.assertIn("createdAt", res3.data)
         self.assertIn("result", res3.data)
+
+    def test_trip_detail_unknown_trip_no_returns_404(self):
+        res = self.client.get(reverse("trip-detail", kwargs={"trip_no": 999999999}))
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(res.data.get("error"), "not_found")
 
     def test_locations_search_empty_query_returns_empty_list(self):
         res = self.client.get(reverse("locations-search"), {"q": ""})

@@ -39,6 +39,8 @@ const SectionCard = forwardRef<HTMLDivElement, SectionCardProps>(function Sectio
           p: padded ? { xs: 1.5, sm: 2 } : 0,
           flex: 1,
           minHeight: 0,
+          minWidth: 0,
+          maxWidth: "100%",
           display: "flex",
           flexDirection: "column",
         }}

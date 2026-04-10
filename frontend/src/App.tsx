@@ -48,7 +48,7 @@ export default function App({ colorMode, onToggleColorMode }: AppProps) {
         />
 
         <Route
-          path="/overview/:tripId"
+          path="/overview/:tripNo"
           element={
             <AppLayout colorMode={colorMode} onToggleColorMode={onToggleColorMode}>
               <TripOverviewPage />
@@ -57,7 +57,7 @@ export default function App({ colorMode, onToggleColorMode }: AppProps) {
         />
 
         <Route
-          path="/overview/:tripId/logs"
+          path="/overview/:tripNo/logs"
           element={
             <AppLayout colorMode={colorMode} onToggleColorMode={onToggleColorMode}>
               <TripLogsPage />

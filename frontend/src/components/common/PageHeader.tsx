@@ -9,8 +9,12 @@ export interface PageHeaderProps {
 
 export default function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ alignItems: { md: "center" } }}>
-      <Box sx={{ flex: 1 }}>
+    <Stack
+      direction={{ xs: "column", md: "row" }}
+      spacing={1}
+      sx={{ alignItems: { md: "center" }, maxWidth: "100%", minWidth: 0 }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0, maxWidth: "100%" }}>
         <Typography variant="h5">{title}</Typography>
         {subtitle != null ? (
           <Typography variant="body2" color="text.secondary">

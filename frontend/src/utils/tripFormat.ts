@@ -3,7 +3,12 @@ import { TIME_ZONE_EASTERN } from "./timeZones";
 export type CityState = { city: string; state: string };
 
 export function formatStop(stop: CityState): string {
-  return `${stop.city}, ${stop.state}`;
+  const city = (stop.city || "").trim();
+  const state = (stop.state || "").trim();
+  if (city && state) return `${city}, ${state}`;
+  if (state) return state;
+  if (city) return city;
+  return "—";
 }
 
 export function parseStop(raw: string): CityState {
