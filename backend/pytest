@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+VENV="${ROOT}/.venv"
+PY="${VENV}/bin/python"
+
+if [[ ! -x "${PY}" ]]; then
+  echo "Creating backend virtualenv at ${VENV}..." >&2
+  python3 -m venv "${VENV}"
+  "${PY}" -m pip install -U pip >/dev/null
+  "${PY}" -m pip install -r "${ROOT}/requirements.txt"
+elif ! "${PY}" -c "import django" >/dev/null 2>&1; then
+  echo "Installing backend dependencies into ${VENV}..." >&2
+  "${PY}" -m pip install -r "${ROOT}/requirements.txt"
+fi
+
+exec "${PY}" -m pytest "$@"

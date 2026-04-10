@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from trips.models import TripPlan
+from trips.services.location_service import LocationService
 
 
 class TestTripApi(APITestCase):
@@ -132,10 +133,10 @@ class TestTripApi(APITestCase):
         self.assertEqual(res.data, [])
 
     def test_locations_search_upstream_failure_returns_502(self):
-        with patch(
-            "trips.services.location_service.requests.get",
-            side_effect=requests.RequestException("down"),
-        ):
+        LocationService.search.cache_clear()
+        # LocationService uses requests.Session().get(), not requests.get()
+        with patch("trips.services.location_service.requests.Session") as mock_session_cls:
+            mock_session_cls.return_value.get.side_effect = requests.RequestException("down")
             res = self.client.get(reverse("locations-search"), {"q": "denver"})
         self.assertEqual(res.status_code, status.HTTP_502_BAD_GATEWAY)
         self.assertEqual(res.data.get("error"), "upstream_unavailable")

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -19,6 +20,12 @@ from dotenv import load_dotenv  # type: ignore[import-untyped]
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+IS_TEST = (
+    os.getenv("PYTEST_CURRENT_TEST") is not None
+    or any(a.endswith("pytest") or a.endswith("pytest.exe") for a in sys.argv)
+    or any(a == "test" for a in sys.argv)
+)
 
 def _env_required(name: str) -> str:
     value = os.getenv(name)
@@ -34,7 +41,7 @@ def _env_optional(name: str) -> str | None:
     return s or None
 
 
-SECRET_KEY = _env_required("DJANGO_SECRET_KEY")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY") or ("test-secret-key" if IS_TEST else _env_required("DJANGO_SECRET_KEY"))
 
 DEBUG = os.getenv("DJANGO_DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -134,7 +141,7 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
-FRONTEND_ORIGIN = _env_required("FRONTEND_ORIGIN")
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN") or ("http://localhost:5173" if IS_TEST else _env_required("FRONTEND_ORIGIN"))
 CORS_ALLOWED_ORIGINS = [FRONTEND_ORIGIN]
 CSRF_TRUSTED_ORIGINS = [FRONTEND_ORIGIN]
 

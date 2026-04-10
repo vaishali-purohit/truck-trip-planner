@@ -12,3 +12,4 @@ requests==2.33.1
 sqlparse==0.5.5
 urllib3==2.6.3
 whitenoise==6.11.0
+pytest-django==4.11.1

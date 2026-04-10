@@ -35,4 +35,14 @@ class TestTripService(TestCase):
                 }
             )
         self.assertIsNotNone(t.trip_no)
-        self.assertEqual(t.result, {"ok": True})
+        # Service enriches persisted result with request inputs + defaults
+        self.assertEqual(t.result.get("ok"), True)
+        self.assertEqual(
+            t.result.get("inputs"),
+            {
+                "currentLocation": "A",
+                "pickupLocation": "B",
+                "dropoffLocation": "C",
+                "cycleHoursUsed": 1.0,
+            },
+        )
