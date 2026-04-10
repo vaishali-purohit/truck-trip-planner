@@ -170,6 +170,17 @@ SPECTACULAR_SETTINGS = {
     ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Document X-API-Key so Swagger "Authorize" can send it.
+    # This is required only when API_KEY is configured in env.
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
+            "ApiKeyAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "X-API-Key",
+            }
+        }
+    },
 }
 
 if DEBUG:
