@@ -209,3 +209,10 @@ ROUTE_TIMEOUT_SECONDS = float(os.getenv("ROUTE_TIMEOUT_SECONDS", "45"))
 
 # Optional: if set, require clients to send X-API-Key for all API calls.
 API_KEY = _env_optional("API_KEY")
+
+# Trip header defaults (optional; shown in Daily Log header)
+DEFAULT_CARRIER_NAME = os.getenv("DEFAULT_CARRIER_NAME", "").strip()
+DEFAULT_MAIN_OFFICE_ADDRESS = os.getenv("DEFAULT_MAIN_OFFICE_ADDRESS", "").strip()
+DEFAULT_DRIVER_NAME = os.getenv("DEFAULT_DRIVER_NAME", "").strip()
+DEFAULT_TRUCK_ID = os.getenv("DEFAULT_TRUCK_ID", "").strip()
+DEFAULT_TRAILER_ID = os.getenv("DEFAULT_TRAILER_ID", "").strip()

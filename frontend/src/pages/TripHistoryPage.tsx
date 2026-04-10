@@ -82,7 +82,10 @@ export default function TripHistoryPage() {
       next = next.filter((t) => {
         const haystack = [
           t.tripNo != null ? String(t.tripNo) : "",
+          t.dateISO,
           t.driverName,
+          t.truckId,
+          t.trailerId ?? "",
           `${t.pickup.city} ${t.pickup.state}`,
           `${t.dropoff.city} ${t.dropoff.state}`,
         ]

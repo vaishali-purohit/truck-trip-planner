@@ -191,12 +191,14 @@ export default function TripOverviewPage() {
     () => (isDraft ? [] : (trip?.eldLogSheets ?? [])),
     [isDraft, trip?.eldLogSheets],
   );
+  const isSingleDayTrip = logSheets.length === 1;
   const totalLogDays =
     trip != null ? (trip.totalLogDays ?? Math.max(1, logSheets.length)) : 0;
+  const effectiveLogTab: "full" | number = isSingleDayTrip ? 0 : logTab;
   const activeDayIndex =
-    logTab === "full" || logSheets.length === 0
+    effectiveLogTab === "full" || logSheets.length === 0
       ? null
-      : Math.min(Math.max(0, logTab), logSheets.length - 1);
+      : Math.min(Math.max(0, effectiveLogTab), logSheets.length - 1);
   const selectedDaySheet =
     activeDayIndex === null ? null : logSheets[activeDayIndex] ?? null;
 
@@ -276,7 +278,7 @@ export default function TripOverviewPage() {
   const dayDateISO = selectedDaySheet?.dateISO ?? displayTrip.dateISO;
 
   const remarkEntries = useMemo(() => {
-    if (logTab === "full" || selectedDaySheet == null) return [];
+    if (effectiveLogTab === "full" || selectedDaySheet == null) return [];
     const segments = selectedDaySheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
     return segments.map((s, i) => {
       const midHour = (s.fromHour + s.toHour) / 2;
@@ -308,19 +310,24 @@ export default function TripOverviewPage() {
     dayRouteProgress,
     dayToLocation,
     fallbackLoc,
-    logTab,
+    effectiveLogTab,
     routePinPlaceNames,
     selectedDaySheet,
   ]);
 
+  const normalizedDayNumber = (raw: number | undefined, fallback: number) => {
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 1) return fallback;
+    return raw;
+  };
+
   const dailyTotalsForSidebar = selectedDaySheet?.dutyTotals ?? displayTrip.dutyTotals;
   const sidebarLogDayNumber =
     selectedDaySheet != null && activeDayIndex != null
-      ? (selectedDaySheet.dayIndex ?? activeDayIndex + 1)
+      ? normalizedDayNumber(selectedDaySheet.dayIndex, activeDayIndex + 1)
       : 1;
 
   const tabValue =
-    logTab === "full" || logSheets.length === 0 ? "full" : String(activeDayIndex ?? 0);
+    effectiveLogTab === "full" || logSheets.length === 0 ? "full" : String(activeDayIndex ?? 0);
 
   const stopPlan = displayTrip.stopPlan;
   const fuelStops = stopPlan?.fuelStops ?? 0;
@@ -573,41 +580,43 @@ export default function TripOverviewPage() {
                 }}
                 showDayLog={selectedDaySheet != null}
                 tabs={
-                  <Box sx={{ borderBottom: 1, borderColor: "divider", pb: 0, mb: 0 }}>
-                    <Tabs
-                      value={tabValue}
-                      onChange={(_, v) => {
-                        if (v === "full") setLogTab("full");
-                        else setLogTab(Number(v));
-                      }}
-                      variant="scrollable"
-                      scrollButtons="auto"
-                      allowScrollButtonsMobile
-                      sx={{
-                        width: "100%",
-                        minWidth: 0,
-                        minHeight: 44,
-                        "& .MuiTabs-scroller": { maxWidth: "100%" },
-                        "& .MuiTab-root": { minHeight: 44, textTransform: "none", fontWeight: 700 },
-                      }}
-                    >
-                      <Tab label="Full Journey" value="full" />
-                      {logSheets.map((sheet, i) => (
-                        <Tab
-                          key={`${sheet.dateISO}-${i}`}
-                          label={`Day ${sheet.dayIndex ?? i + 1}`}
-                          value={String(i)}
-                        />
-                      ))}
-                    </Tabs>
-                  </Box>
+                  isSingleDayTrip ? null : (
+                    <Box sx={{ borderBottom: 1, borderColor: "divider", pb: 0, mb: 0 }}>
+                      <Tabs
+                        value={tabValue}
+                        onChange={(_, v) => {
+                          if (v === "full") setLogTab("full");
+                          else setLogTab(Number(v));
+                        }}
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        allowScrollButtonsMobile
+                        sx={{
+                          width: "100%",
+                          minWidth: 0,
+                          minHeight: 44,
+                          "& .MuiTabs-scroller": { maxWidth: "100%" },
+                          "& .MuiTab-root": { minHeight: 44, textTransform: "none", fontWeight: 700 },
+                        }}
+                      >
+                        <Tab label="Full Journey" value="full" />
+                        {logSheets.map((sheet, i) => (
+                          <Tab
+                            key={`${sheet.dateISO}-${i}`}
+                            label={`Day ${normalizedDayNumber(sheet.dayIndex, i + 1)}`}
+                            value={String(i)}
+                          />
+                        ))}
+                      </Tabs>
+                    </Box>
+                  )
                 }
                 fullJourneyLine={fullJourneyLine}
                 dateISO={dayDateISO}
                 totalMilesToday={dayMilesDriving}
                 fromLocation={dayFromLocation}
                 toLocation={dayToLocation}
-                truckId={displayTrip.truckId}
+                truckId={displayTrip.truckId?.trim() ? displayTrip.truckId : String(displayTrip.tripNo ?? "")}
                 trailerId={displayTrip.trailerId}
                 driverName={displayTrip.driverName}
                 carrierName={displayTrip.carrierName}

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import requests
+from django.conf import settings
 
 from trips.services.location_service import LocationService
 from trips.services.route_service import RouteService
@@ -145,11 +146,17 @@ def build_trip_plan(
     # Final response
     return {
         "dateISO": datetime.now(tz=tz).date().isoformat(),
+        "driverName": getattr(settings, "DEFAULT_DRIVER_NAME", "") or "",
+        "truckId": getattr(settings, "DEFAULT_TRUCK_ID", "") or "",
+        "trailerId": getattr(settings, "DEFAULT_TRAILER_ID", "") or "",
+        "carrierName": getattr(settings, "DEFAULT_CARRIER_NAME", "") or "",
+        "mainOfficeAddress": getattr(settings, "DEFAULT_MAIN_OFFICE_ADDRESS", "") or "",
         "pickup": pickup_stop,
         "dropoff": dropoff_stop,
         "totalDistanceMi": round(distance_mi, 1),
         "drivingHours": round(driving_hours, 2),
         "totalTripTimeHours": round(total_trip_time_hours, 1),
+        "totalMilesToday": round(distance_mi, 1),
         "compliance": compliance,
         "estimatedArrivalISO": eta,
         "stopsCount": stops["stopCount"],

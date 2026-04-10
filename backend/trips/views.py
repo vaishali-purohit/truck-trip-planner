@@ -16,6 +16,69 @@ from .serializers import (
 from .services.trip_service import TripService
 from .services.location_service import LocationService
 from .repositories.trip_repository import TripRepository
+from django.conf import settings
+
+
+def _default_str(setting_name: str) -> str:
+    v = getattr(settings, setting_name, "")
+    return str(v).strip() if v is not None else ""
+
+
+def _auto_truck_id(trip_no: int | None) -> str:
+    return f"TRK-{trip_no}" if trip_no is not None else ""
+
+
+def _auto_trailer_id(trip_no: int | None) -> str:
+    return f"TRL-{trip_no}" if trip_no is not None else ""
+
+
+def _auto_driver_name(trip_no: int | None) -> str:
+    if trip_no is None:
+        return "Driver"
+    return f"Driver {trip_no}"
+
+
+def _auto_carrier_name() -> str:
+    return "Carrier"
+
+
+def _auto_main_office_address() -> str:
+    return "Main Office"
+
+
+def _blank(v: object) -> bool:
+    return v is None or (isinstance(v, str) and not v.strip())
+
+
+def _normalize_trip_result(result: object, trip_no: int | None) -> object:
+    """
+    Ensure list/detail responses always include fields used by Trip History filters/sorting.
+    This keeps older saved trips working even if their stored JSON is missing fields.
+    """
+    if not isinstance(result, dict):
+        return result
+
+    if _blank(result.get("carrierName")):
+        result["carrierName"] = _default_str("DEFAULT_CARRIER_NAME") or _auto_carrier_name()
+    if _blank(result.get("mainOfficeAddress")):
+        result["mainOfficeAddress"] = _default_str("DEFAULT_MAIN_OFFICE_ADDRESS") or _auto_main_office_address()
+    if _blank(result.get("driverName")):
+        result["driverName"] = _default_str("DEFAULT_DRIVER_NAME") or _auto_driver_name(trip_no)
+    if _blank(result.get("truckId")):
+        result["truckId"] = _default_str("DEFAULT_TRUCK_ID") or _auto_truck_id(trip_no)
+    if _blank(result.get("trailerId")):
+        result["trailerId"] = _default_str("DEFAULT_TRAILER_ID") or _auto_trailer_id(trip_no)
+    if _blank(result.get("driverLogs")):
+        sheets = result.get("eldLogSheets")
+        has_segments = False
+        if isinstance(sheets, list):
+            for sh in sheets:
+                if isinstance(sh, dict) and isinstance(sh.get("segments"), list) and sh.get("segments"):
+                    has_segments = True
+                    break
+        result["driverLogs"] = "completed" if has_segments else "pending"
+
+    return result
 
 @extend_schema(
     request=TripPlanCreateSerializer,
@@ -116,7 +179,7 @@ class TripPlanView(APIView):
                 "id": obj.id,
                 "tripNo": obj.trip_no,
                 "createdAt": obj.created_at,
-                "result": obj.result,
+                "result": _normalize_trip_result(obj.result, obj.trip_no),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -159,7 +222,7 @@ class TripListView(APIView):
                 "id": t.id,
                 "tripNo": t.trip_no,
                 "createdAt": t.created_at,
-                "result": t.result,
+                "result": _normalize_trip_result(t.result, t.trip_no),
             }
             for t in trips
         ]
@@ -208,7 +271,7 @@ class TripDetailView(APIView):
                 "id": t.id,
                 "tripNo": t.trip_no,
                 "createdAt": t.created_at,
-                "result": t.result,
+                "result": _normalize_trip_result(t.result, t.trip_no),
             }
         )
 

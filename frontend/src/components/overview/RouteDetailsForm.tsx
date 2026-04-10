@@ -117,6 +117,9 @@ function LocationAutocomplete({
         const results = await searchLocations(q, 8);
         if (activeRequestId.current !== requestId) return;
         setOptions(results);
+      } catch {
+        if (activeRequestId.current !== requestId) return;
+        setOptions([]);
       } finally {
         if (activeRequestId.current === requestId) setLoading(false);
       }

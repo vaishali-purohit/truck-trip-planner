@@ -9,6 +9,33 @@ class TripService:
     MAX_RETRIES = 5
 
     @staticmethod
+    def _default_str(setting_name: str) -> str:
+        v = getattr(settings, setting_name, "")
+        return str(v).strip() if v is not None else ""
+
+    @staticmethod
+    def _auto_truck_id(trip_no: int | None) -> str:
+        return f"TRK-{trip_no}" if trip_no is not None else ""
+
+    @staticmethod
+    def _auto_trailer_id(trip_no: int | None) -> str:
+        return f"TRL-{trip_no}" if trip_no is not None else ""
+
+    @staticmethod
+    def _auto_driver_name(trip_no: int | None) -> str:
+        if trip_no is None:
+            return "Driver"
+        return f"Driver {trip_no}"
+
+    @staticmethod
+    def _auto_carrier_name() -> str:
+        return "Carrier"
+
+    @staticmethod
+    def _auto_main_office_address() -> str:
+        return "Main Office"
+
+    @staticmethod
     def _get_starting_trip_no():
         return getattr(settings, "TRIP_START_NUMBER", 1900)
 
@@ -45,6 +72,55 @@ class TripService:
                         dropoff_location=data["dropoffLocation"],
                         cycle_hours_used=cycle_hours,
                     )
+
+                    # Persist the original request inputs so the UI can repopulate
+                    # fields when viewing an existing trip (after navigation / reload).
+                    if isinstance(plan, dict):
+                        plan.setdefault(
+                            "inputs",
+                            {
+                                "currentLocation": data["currentLocation"],
+                                "pickupLocation": data["pickupLocation"],
+                                "dropoffLocation": data["dropoffLocation"],
+                                "cycleHoursUsed": cycle_hours,
+                            },
+                        )
+
+                        # Provide stable defaults for Daily Log header fields when not configured.
+                        def _blank(v: object) -> bool:
+                            return v is None or (isinstance(v, str) and not v.strip())
+
+                        if _blank(plan.get("carrierName")):
+                            plan["carrierName"] = (
+                                cls._default_str("DEFAULT_CARRIER_NAME") or cls._auto_carrier_name()
+                            )
+                        if _blank(plan.get("mainOfficeAddress")):
+                            plan["mainOfficeAddress"] = (
+                                cls._default_str("DEFAULT_MAIN_OFFICE_ADDRESS") or cls._auto_main_office_address()
+                            )
+                        if _blank(plan.get("driverName")):
+                            plan["driverName"] = (
+                                cls._default_str("DEFAULT_DRIVER_NAME") or cls._auto_driver_name(trip_no)
+                            )
+                        if _blank(plan.get("truckId")):
+                            plan["truckId"] = (
+                                cls._default_str("DEFAULT_TRUCK_ID") or cls._auto_truck_id(trip_no)
+                            )
+                        if _blank(plan.get("trailerId")):
+                            plan["trailerId"] = (
+                                cls._default_str("DEFAULT_TRAILER_ID") or cls._auto_trailer_id(trip_no)
+                            )
+
+                        # driverLogs: pending if we don't have usable segments yet (older trips)
+                        if _blank(plan.get("driverLogs")):
+                            sheets = plan.get("eldLogSheets")
+                            has_segments = False
+                            if isinstance(sheets, list):
+                                for sh in sheets:
+                                    if isinstance(sh, dict) and isinstance(sh.get("segments"), list) and sh.get("segments"):
+                                        has_segments = True
+                                        break
+                            plan["driverLogs"] = "completed" if has_segments else "pending"
 
                     return TripPlan.objects.create(
                         trip_no=trip_no,
