@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EldLogSegment } from "../../types/trip";
-import { normalizeSegmentsForTwentyFourHourGraph } from "./EldDutyGraph";
+import { normalizeSegmentsForTwentyFourHourGraph } from "../../utils/eldDutyGraphUtils";
 
 describe("normalizeSegmentsForTwentyFourHourGraph", () => {
   it("pads leading wall-clock gap with Off Duty and closes at 24", () => {

@@ -1,6 +1,11 @@
-import type { DutyStatusTotals, EldLogSegment, EldSegmentStatus } from "../../types/trip";
+import type {
+  DutyStatusTotals,
+  EldLogSegment,
+  EldSegmentStatus,
+} from "../../types/trip";
 import { Box, Typography } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
+import { normalizeSegmentsForTwentyFourHourGraph } from "../../utils/eldDutyGraphUtils";
 
 const ROW_LABELS = ["Off Duty", "Sleeper Berth", "Driving", "On Duty"] as const;
 
@@ -10,11 +15,20 @@ const ROW_BAND_COLORS = ["#93C5FD", "#C4B5FD", "#6EE7B7", "#FCD34D"] as const;
  * 24-hour duty status graph (ELD-style): hour axis on top, four status bands (Off → Sleeper → Driving → On Duty),
  * step path with transitions. Rows match FMCSA-style order top to bottom.
  */
-export default function EldDutyGraph(props: { dutyTotals: DutyStatusTotals; segments?: EldLogSegment[] }) {
+export default function EldDutyGraph(props: {
+  dutyTotals: DutyStatusTotals;
+  segments?: EldLogSegment[];
+}) {
   const { dutyTotals, segments: explicitSegments } = props;
   const theme = useTheme();
-  const grid = alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.22 : 0.18);
-  const ink = alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.92 : 0.86);
+  const grid = alpha(
+    theme.palette.text.primary,
+    theme.palette.mode === "dark" ? 0.22 : 0.18,
+  );
+  const ink = alpha(
+    theme.palette.text.primary,
+    theme.palette.mode === "dark" ? 0.92 : 0.86,
+  );
   const dutyStroke = "#111827";
 
   const W = 980;
@@ -28,12 +42,19 @@ export default function EldDutyGraph(props: { dutyTotals: DutyStatusTotals; segm
   const chartH = topPad + rows * rowH;
 
   const x0 = leftPad + labelW;
-  const minorXs = Array.from({ length: 24 * 4 + 1 }, (_, i) => x0 + (chartW / (24 * 4)) * i);
+  const minorXs = Array.from(
+    { length: 24 * 4 + 1 },
+    (_, i) => x0 + (chartW / (24 * 4)) * i,
+  );
 
-  const raw = explicitSegments?.length ? explicitSegments : buildSegmentsFromTotals(dutyTotals);
+  const raw =
+    explicitSegments?.length ? explicitSegments : (
+      buildSegmentsFromTotals(dutyTotals)
+    );
   const segments = normalizeSegmentsForTwentyFourHourGraph(raw);
 
-  const transitionNodes: { h: number; row: number }[] = buildTransitionNodes(segments);
+  const transitionNodes: { h: number; row: number }[] =
+    buildTransitionNodes(segments);
 
   const pathD = buildStepPath({ x0, chartW, topPad, rowH, segments });
 
@@ -43,7 +64,12 @@ export default function EldDutyGraph(props: { dutyTotals: DutyStatusTotals; segm
         width="100%"
         viewBox={`0 0 ${W} ${chartH + 24}`}
         preserveAspectRatio="xMinYMin meet"
-        style={{ display: "block", maxWidth: "100%", height: "auto", verticalAlign: "top" }}
+        style={{
+          display: "block",
+          maxWidth: "100%",
+          height: "auto",
+          verticalAlign: "top",
+        }}
       >
         <text x={leftPad} y={18} fill={ink} fontSize="12" fontWeight="700">
           Driver&apos;s Daily Log — 24 Hour Graph
@@ -51,7 +77,15 @@ export default function EldDutyGraph(props: { dutyTotals: DutyStatusTotals; segm
 
         {renderTopAxisLabels({ x0, chartW, ink })}
 
-        <rect x={x0} y={topPad} width={chartW} height={rows * rowH} fill="none" stroke={grid} strokeWidth={1.2} />
+        <rect
+          x={x0}
+          y={topPad}
+          width={chartW}
+          height={rows * rowH}
+          fill="none"
+          stroke={grid}
+          strokeWidth={1.2}
+        />
 
         {ROW_LABELS.map((_, idx) => {
           const y = topPad + idx * rowH;
@@ -95,7 +129,14 @@ export default function EldDutyGraph(props: { dutyTotals: DutyStatusTotals; segm
             />
           );
         })}
-        <line x1={x0} x2={x0 + chartW} y1={chartH} y2={chartH} stroke={grid} strokeWidth={1.2} />
+        <line
+          x1={x0}
+          x2={x0 + chartW}
+          y1={chartH}
+          y2={chartH}
+          stroke={grid}
+          strokeWidth={1.2}
+        />
 
         {ROW_LABELS.map((label, idx) => {
           const cy = topPad + (idx + 0.5) * rowH;
@@ -143,9 +184,15 @@ export default function EldDutyGraph(props: { dutyTotals: DutyStatusTotals; segm
       <Typography
         variant="caption"
         color="text.secondary"
-        sx={{ mt: 0.5, display: "block", overflowWrap: "anywhere", wordBreak: "break-word" }}
+        sx={{
+          mt: 0.5,
+          display: "block",
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
+        }}
       >
-        Mid. → Mid. (24 hours). Line is generated from the plan schedule (segments) when available.
+        Mid. → Mid. (24 hours). Line is generated from the plan schedule
+        (segments) when available.
       </Typography>
     </Box>
   );
@@ -174,63 +221,6 @@ function buildStepPath(opts: {
   return parts.join(" ");
 }
 
-const OFF_DUTY_ROW = 0;
-
-/**
- * Planner segments use wall-clock hours on the log date (e.g. first day starts at “now”, day 2+ at 8:00),
- * so the 24h grid has leading/trailing gaps. Without filling those, the step path draws diagonals and
- * does not align with midnight (0 / 24) verticals. This builds a contiguous 0→24 timeline.
- */
-export function normalizeSegmentsForTwentyFourHourGraph(
-  segments: EldLogSegment[],
-): { fromHour: number; toHour: number; row: number }[] {
-  const clampH = (h: number) => Math.max(0, Math.min(24, Number.isFinite(h) ? h : 0));
-
-  const pieces = segments
-    .filter((s) => s.toHour > s.fromHour)
-    .map((s) => ({
-      fromHour: clampH(s.fromHour),
-      toHour: clampH(s.toHour),
-      row: statusToRowIndex(s.status),
-    }))
-    .filter((s) => s.toHour > s.fromHour)
-    .sort((a, b) => a.fromHour - b.fromHour || a.row - b.row);
-
-  const out: { fromHour: number; toHour: number; row: number }[] = [];
-  let cursor = 0;
-
-  for (const s of pieces) {
-    if (s.fromHour > cursor + 1e-6) {
-      out.push({ fromHour: cursor, toHour: s.fromHour, row: OFF_DUTY_ROW });
-    }
-    const from = Math.max(s.fromHour, cursor);
-    if (s.toHour <= from + 1e-9) continue;
-    out.push({ fromHour: from, toHour: s.toHour, row: s.row });
-    cursor = s.toHour;
-  }
-
-  if (cursor < 24 - 1e-6) {
-    out.push({ fromHour: cursor, toHour: 24, row: OFF_DUTY_ROW });
-  }
-
-  return out;
-}
-
-function statusToRowIndex(status: EldSegmentStatus) {
-  switch (status) {
-    case "Off Duty":
-      return 0;
-    case "Sleeper":
-      return 1;
-    case "Driving":
-      return 2;
-    case "On Duty":
-      return 3;
-    default:
-      return 0;
-  }
-}
-
 function buildSegmentsFromTotals(totals: DutyStatusTotals): EldLogSegment[] {
   const order: Array<{ status: EldSegmentStatus; hours: number }> = [
     { status: "Off Duty", hours: totals.offDutyHours },
@@ -246,7 +236,8 @@ function buildSegmentsFromTotals(totals: DutyStatusTotals): EldLogSegment[] {
     if (hours <= 0) continue;
     const fromHour = h;
     const toHour = Math.min(24, h + hours);
-    if (toHour > fromHour) segments.push({ status: item.status, fromHour, toHour });
+    if (toHour > fromHour)
+      segments.push({ status: item.status, fromHour, toHour });
     h = toHour;
     if (h >= 24) break;
   }
@@ -254,7 +245,9 @@ function buildSegmentsFromTotals(totals: DutyStatusTotals): EldLogSegment[] {
   return segments;
 }
 
-function buildTransitionNodes(segments: { fromHour: number; toHour: number; row: number }[]) {
+function buildTransitionNodes(
+  segments: { fromHour: number; toHour: number; row: number }[],
+) {
   const nodes: { h: number; row: number }[] = [];
   for (let i = 0; i < segments.length - 1; i++) {
     const a = segments[i];
@@ -265,15 +258,25 @@ function buildTransitionNodes(segments: { fromHour: number; toHour: number; row:
   return nodes;
 }
 
-function renderTopAxisLabels(opts: { x0: number; chartW: number; ink: string }) {
+function renderTopAxisLabels(opts: {
+  x0: number;
+  chartW: number;
+  ink: string;
+}) {
   const { x0, chartW, ink } = opts;
   const x = (h: number) => x0 + (chartW / 24) * h;
 
   const labels: Array<{ at: number; text: string }> = [
     { at: 0, text: "Mid." },
-    ...Array.from({ length: 11 }, (_, i) => ({ at: i + 1, text: String(i + 1) })),
+    ...Array.from({ length: 11 }, (_, i) => ({
+      at: i + 1,
+      text: String(i + 1),
+    })),
     { at: 12, text: "Noon" },
-    ...Array.from({ length: 11 }, (_, i) => ({ at: 12 + (i + 1), text: String(i + 1) })),
+    ...Array.from({ length: 11 }, (_, i) => ({
+      at: 12 + (i + 1),
+      text: String(i + 1),
+    })),
     { at: 24, text: "Mid." },
   ];
 

@@ -30,19 +30,28 @@ export default function TripLogsPage() {
 
   useEffect(() => {
     let mounted = true;
-    setFetchError(null);
+    queueMicrotask(() => {
+      if (!mounted) return;
+      setFetchError(null);
+    });
 
     if (tripNoParam == null || tripNoParam === "") {
-      setTrip(null);
-      setLoading(false);
+      queueMicrotask(() => {
+        if (!mounted) return;
+        setTrip(null);
+        setLoading(false);
+      });
       return () => {
         mounted = false;
       };
     }
 
     if (routeTripNo == null) {
-      setTrip(null);
-      setLoading(false);
+      queueMicrotask(() => {
+        if (!mounted) return;
+        setTrip(null);
+        setLoading(false);
+      });
       return () => {
         mounted = false;
       };

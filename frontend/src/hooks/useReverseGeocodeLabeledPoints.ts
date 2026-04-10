@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { mapboxReversePlaceName } from "../utils/mapboxReverseGeocode";
 
 export type LabeledLngLat = { id: string; lng: number; lat: number };
@@ -21,27 +21,31 @@ export function useReverseGeocodeLabeledPoints(
     );
   }, [points]);
 
-  const pointsRef = useRef(points);
-  pointsRef.current = points;
-
   useEffect(() => {
     if (!accessToken?.trim() || !signature) {
-      setLabels({});
-      setLoading(false);
+      queueMicrotask(() => {
+        setLabels({});
+        setLoading(false);
+      });
       return;
     }
 
-    const list = pointsRef.current;
+    const list = points;
     if (!list?.length) {
-      setLabels({});
-      setLoading(false);
+      queueMicrotask(() => {
+        setLabels({});
+        setLoading(false);
+      });
       return;
     }
 
     let cancelled = false;
     const ac = new AbortController();
-    setLoading(true);
-    setLabels({});
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setLabels({});
+    });
 
     const groups = new Map<string, { lng: number; lat: number; ids: string[] }>();
     for (const p of list) {
@@ -64,8 +68,11 @@ export function useReverseGeocodeLabeledPoints(
         }),
       );
       if (!cancelled) {
-        setLabels(next);
-        setLoading(false);
+        queueMicrotask(() => {
+          if (cancelled) return;
+          setLabels(next);
+          setLoading(false);
+        });
       }
     })();
 
@@ -73,7 +80,7 @@ export function useReverseGeocodeLabeledPoints(
       cancelled = true;
       ac.abort();
     };
-  }, [accessToken, signature]);
+  }, [accessToken, points, signature]);
 
   return { labels, loading };
 }

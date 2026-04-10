@@ -53,7 +53,7 @@ export function compactUsMapboxPlaceName(s: string): string {
   if (parts.length === 0) return t;
 
   const last = parts[parts.length - 1]!;
-  const stateZip = last.match(/^([A-Za-z][A-Za-z\s\.\-']*?)\s+(\d{5}(?:-\d{4})?)$/);
+  const stateZip = last.match(/^([A-Za-z][A-Za-z\s.'-]*?)\s+(\d{5}(?:-\d{4})?)$/);
   if (stateZip) {
     const state = stateZip[1].trim().replace(/\s+/g, " ");
     return `${state} ${stateZip[2]}, US`;
@@ -61,7 +61,7 @@ export function compactUsMapboxPlaceName(s: string): string {
 
   if (parts.length >= 2) {
     const maybeState = last;
-    if (/^[A-Za-z][A-Za-z\s\.\-']{0,35}$/.test(maybeState) && !/\d/.test(maybeState)) {
+    if (/^[A-Za-z][A-Za-z\s.'-]{0,35}$/.test(maybeState) && !/\d/.test(maybeState)) {
       return `${maybeState}, US`;
     }
   }

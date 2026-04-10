@@ -289,7 +289,13 @@ export default function RouteMapPanel({
   ]);
 
   const initialViewState = useMemo(() => {
-    const line = lineCoordinates;
+    const coords = route?.line?.coordinates;
+    const slice =
+      dayRouteMode && routeProgress && coords?.length
+        ? sliceRouteByFractionRange(coords, routeProgress)
+        : null;
+    const line = slice?.length ? slice : coords;
+
     if (line?.length) {
       const mid = Math.floor(line.length / 2);
       const [lng, lat] = line[mid]!;
@@ -303,7 +309,7 @@ export default function RouteMapPanel({
       };
     }
     return { longitude: -96.8, latitude: 37.8, zoom: 3 };
-  }, [dayRouteMode, lineCoordinates, route?.pickupLngLat]);
+  }, [dayRouteMode, route, routeProgress]);
 
   const fitRouteBounds = useCallback(() => {
     const pts = lineCoordinates;
@@ -352,18 +358,18 @@ export default function RouteMapPanel({
 
   useEffect(() => {
     if (hoverTip == null) {
-      setPinGeocodedPlace(undefined);
+      queueMicrotask(() => setPinGeocodedPlace(undefined));
       return;
     }
     if (!mapboxToken) {
-      setPinGeocodedPlace(undefined);
+      queueMicrotask(() => setPinGeocodedPlace(undefined));
       return;
     }
 
     const { lng, lat } = hoverTip;
     let cancelled = false;
     const ac = new AbortController();
-    setPinGeocodedPlace(undefined);
+    queueMicrotask(() => setPinGeocodedPlace(undefined));
 
     mapboxReversePlaceName(lng, lat, mapboxToken, ac.signal)
       .then((name) => {

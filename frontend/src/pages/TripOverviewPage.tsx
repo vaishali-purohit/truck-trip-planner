@@ -154,7 +154,7 @@ export default function TripOverviewPage() {
       pickupLocation.trim() !== "" &&
       dropoffLocation.trim() !== "";
     const cycleInRange =
-      cycleHoursUsed > 0 && cycleHoursUsed < 70;
+      cycleHoursUsed >= 0 && cycleHoursUsed <= 70;
     return locationsFilled && cycleInRange;
   }, [
     currentLocation,
@@ -187,7 +187,10 @@ export default function TripOverviewPage() {
     [displayTrip.dropoff, displayTrip.pickup],
   );
 
-  const logSheets = isDraft ? [] : (trip?.eldLogSheets ?? []);
+  const logSheets = useMemo(
+    () => (isDraft ? [] : (trip?.eldLogSheets ?? [])),
+    [isDraft, trip?.eldLogSheets],
+  );
   const totalLogDays =
     trip != null ? (trip.totalLogDays ?? Math.max(1, logSheets.length)) : 0;
   const activeDayIndex =

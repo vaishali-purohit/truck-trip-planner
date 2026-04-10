@@ -203,5 +203,9 @@ else:
 
 LOCATION_SEARCH_TIMEOUT_SECONDS = float(os.getenv("LOCATION_SEARCH_TIMEOUT_SECONDS", "8"))
 
+# Routing (OSRM)
+# The public OSRM demo can be slow / rate-limited; allow tuning the route timeout via env.
+ROUTE_TIMEOUT_SECONDS = float(os.getenv("ROUTE_TIMEOUT_SECONDS", "45"))
+
 # Optional: if set, require clients to send X-API-Key for all API calls.
 API_KEY = _env_optional("API_KEY")
