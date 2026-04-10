@@ -23,5 +23,5 @@ bash dev.sh
 
 ```bash
 https://truck-trip-planner-web.onrender.com
-https://truck-trip-planner.onrender.com/api/docs/
+https://truck-trip-planner-api.up.railway.app/api/docs/
 ```
