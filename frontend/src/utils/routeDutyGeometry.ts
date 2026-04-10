@@ -1,11 +1,9 @@
-import type { DutyStatusTotals, EldLogSegment, EldSegmentStatus, LngLat } from "../types/trip";
-
-const ELD_STATUS_MAP: Record<EldSegmentStatus, { label: string; color: string }> = {
-  "Off Duty": { label: "Off Duty", color: "#9CA3AF" },
-  Sleeper: { label: "Sleeper Berth", color: "#3B82F6" },
-  Driving: { label: "Driving", color: "#10B981" },
-  "On Duty": { label: "On Duty", color: "#F59E0B" },
-};
+import type {
+  DutyStatusTotals,
+  EldLogSegment,
+  EldSegmentStatus,
+  LngLat,
+} from "../types/trip";
 
 export type DutySegment = {
   statusKey: string;
@@ -22,7 +20,11 @@ export type DutySegment = {
 
 const DUTY_SPEC = [
   { key: "off", label: "Off Duty", prop: "offDutyHours" as const },
-  { key: "sleeper", label: "Sleeper Berth", prop: "sleeperBerthHours" as const },
+  {
+    key: "sleeper",
+    label: "Sleeper Berth",
+    prop: "sleeperBerthHours" as const,
+  },
   { key: "driving", label: "Driving", prop: "drivingHours" as const },
   { key: "onDuty", label: "On Duty", prop: "onDutyHours" as const },
 ] as const;
@@ -115,7 +117,10 @@ export function clamp01(v: number): number {
 }
 
 /** Sub-polyline between fractional distances along the full route (0–1). */
-export function sliceRouteByFractionRange(coords: LngLat[], range: { start: number; end: number }): LngLat[] {
+export function sliceRouteByFractionRange(
+  coords: LngLat[],
+  range: { start: number; end: number },
+): LngLat[] {
   if (coords.length < 2) return [];
   const cum = cumulativeSegLens(coords);
   const pathLen = cum[cum.length - 1];
@@ -125,7 +130,10 @@ export function sliceRouteByFractionRange(coords: LngLat[], range: { start: numb
   return sliceLineByDistanceRange(coords, cum, a, b);
 }
 
-export function pointAtGlobalRouteFraction(coords: LngLat[], globalFraction: number): LngLat {
+export function pointAtGlobalRouteFraction(
+  coords: LngLat[],
+  globalFraction: number,
+): LngLat {
   if (coords.length < 2) return coords[0] ?? [0, 0];
   const cum = cumulativeSegLens(coords);
   const pathLen = cum[cum.length - 1];
@@ -142,7 +150,9 @@ export function globalRouteFractionForClockHour(
   clockHour: number,
   routeProgress: { start: number; end: number },
 ): number {
-  const sorted = segments.filter((s) => s.toHour > s.fromHour).sort((a, b) => a.fromHour - b.fromHour);
+  const sorted = segments
+    .filter((s) => s.toHour > s.fromHour)
+    .sort((a, b) => a.fromHour - b.fromHour);
   if (!sorted.length) return routeProgress.start;
   const dayT0 = sorted[0].fromHour;
   const dayT1 = sorted[sorted.length - 1].toHour;
@@ -164,7 +174,9 @@ export type EldMapMarker = {
 };
 
 /** One map point per ELD segment, ordered in time along the day's portion of the route. */
-function dutySpecKeyToEldStatus(key: (typeof DUTY_SPEC)[number]["key"]): EldSegmentStatus {
+function dutySpecKeyToEldStatus(
+  key: (typeof DUTY_SPEC)[number]["key"],
+): EldSegmentStatus {
   switch (key) {
     case "off":
       return "Off Duty";
@@ -187,7 +199,9 @@ function representativeEldSegmentForStatus(
   status: EldSegmentStatus,
   routeProgress: { start: number; end: number },
 ): { segment: EldLogSegment; globalFrac: number } | null {
-  const subs = segments.filter((s) => s.status === status && s.toHour > s.fromHour);
+  const subs = segments.filter(
+    (s) => s.status === status && s.toHour > s.fromHour,
+  );
   if (!subs.length) return null;
   const segment = subs.reduce((a, b) => {
     const da = a.toHour - a.fromHour;
@@ -197,7 +211,11 @@ function representativeEldSegmentForStatus(
     return a.fromHour <= b.fromHour ? a : b;
   });
   const midHour = (segment.fromHour + segment.toHour) / 2;
-  const globalFrac = globalRouteFractionForClockHour(segments, midHour, routeProgress);
+  const globalFrac = globalRouteFractionForClockHour(
+    segments,
+    midHour,
+    routeProgress,
+  );
   return { segment, globalFrac };
 }
 
@@ -207,7 +225,9 @@ function eldClockSpanForStatus(
   status: EldSegmentStatus,
 ): { fromHour: number; toHour: number } | null {
   if (!segments?.length) return null;
-  const subs = segments.filter((s) => s.status === status && s.toHour > s.fromHour);
+  const subs = segments.filter(
+    (s) => s.status === status && s.toHour > s.fromHour,
+  );
   if (!subs.length) return null;
   let from = Infinity;
   let to = -Infinity;
@@ -232,7 +252,10 @@ export function buildFourDutyStatusMarkers(
 ): EldMapMarker[] {
   if (coords.length < 2) return [];
 
-  const totalHours = DUTY_SPEC.reduce((sum, row) => sum + Math.max(0, duty[row.prop]), 0);
+  const totalHours = DUTY_SPEC.reduce(
+    (sum, row) => sum + Math.max(0, duty[row.prop]),
+    0,
+  );
   if (totalHours <= 1e-9) return [];
 
   const start = clamp01(routeProgress.start);
@@ -252,7 +275,12 @@ export function buildFourDutyStatusMarkers(
     const status = dutySpecKeyToEldStatus(row.key);
 
     const rep =
-      eldSegments?.length ? representativeEldSegmentForStatus(eldSegments, status, { start: lo, end: hi }) : null;
+      eldSegments?.length ?
+        representativeEldSegmentForStatus(eldSegments, status, {
+          start: lo,
+          end: hi,
+        })
+      : null;
 
     let globalFrac: number;
     if (rep) {
@@ -260,14 +288,17 @@ export function buildFourDutyStatusMarkers(
     } else {
       const jitter = (i + 1) * 1e-5;
       const tNorm =
-        hours > 0 ? (startHour + hours / 2) / totalHours + jitter : startHour / totalHours + jitter;
+        hours > 0 ?
+          (startHour + hours / 2) / totalHours + jitter
+        : startHour / totalHours + jitter;
       globalFrac = lo + clamp01(tNorm) * span;
     }
 
     cumHours += hours;
 
     const locRaw = rep?.segment.location;
-    const loc = typeof locRaw === "string" && locRaw.trim() ? locRaw.trim() : undefined;
+    const loc =
+      typeof locRaw === "string" && locRaw.trim() ? locRaw.trim() : undefined;
     const clock = eldClockSpanForStatus(eldSegments, status);
     const fromH = clock ? clock.fromHour : startHour;
     const toH = clock ? clock.toHour : endHour;
