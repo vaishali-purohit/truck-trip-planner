@@ -21,7 +21,7 @@ export interface RouteDetailsFormProps {
 }
 
 /**
- * Editable route fields: US location autocomplete + cycle hours (0–70).
+ * Editable route fields: US location autocomplete + cycle hours (clamped 0–70; Generate requires 1–69).
  */
 export default function RouteDetailsForm({
   currentLocation,

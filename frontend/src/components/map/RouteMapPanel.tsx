@@ -24,6 +24,7 @@ import {
 } from "../../utils/tripRoutePlace";
 import { env } from "../../config/env";
 import { MAPBOX_DEFAULT_STYLE_DARK, MAPBOX_DEFAULT_STYLE_LIGHT } from "../../config/constants";
+import { mapboxReversePlaceName } from "../../utils/mapboxReverseGeocode";
 
 export interface RouteMapPanelProps {
   route?: TripRoute;
@@ -106,8 +107,11 @@ export default function RouteMapPanel({
     lat: number;
     type: string;
     time: string;
-    location: string;
+    /** Label from trip / ELD (fallback when reverse geocode is unavailable). */
+    planLocation: string;
   } | null>(null);
+  /** `undefined` = not loaded yet; `""` = no result; otherwise Mapbox `place_name` at the pin. */
+  const [pinGeocodedPlace, setPinGeocodedPlace] = useState<string | undefined>(undefined);
 
   const lightStyle = env.mapboxStyleLight || MAPBOX_DEFAULT_STYLE_LIGHT;
   const darkStyle = env.mapboxStyleDark || MAPBOX_DEFAULT_STYLE_DARK;
@@ -346,6 +350,35 @@ export default function RouteMapPanel({
     };
   }, [fitRouteBounds, lineCoordinates?.length, mapLoaded]);
 
+  useEffect(() => {
+    if (hoverTip == null) {
+      setPinGeocodedPlace(undefined);
+      return;
+    }
+    if (!mapboxToken) {
+      setPinGeocodedPlace(undefined);
+      return;
+    }
+
+    const { lng, lat } = hoverTip;
+    let cancelled = false;
+    const ac = new AbortController();
+    setPinGeocodedPlace(undefined);
+
+    mapboxReversePlaceName(lng, lat, mapboxToken, ac.signal)
+      .then((name) => {
+        if (!cancelled) setPinGeocodedPlace(name);
+      })
+      .catch(() => {
+        if (!cancelled) setPinGeocodedPlace("");
+      });
+
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [hoverTip, mapboxToken]);
+
   const handleMapMouseMove = useCallback(
     (e: MapMouseEvent) => {
       const map = mapRef.current?.getMap();
@@ -365,7 +398,17 @@ export default function RouteMapPanel({
         const [lng, lat] = g.coordinates as [number, number];
         const time = typeof f.properties?.detailTime === "string" ? f.properties.detailTime : "";
         const loc = typeof f.properties?.detailLocation === "string" ? f.properties.detailLocation : "";
-        setHoverTip({ lng, lat, type: t, time, location: loc });
+        setHoverTip((prev) => {
+          if (
+            prev &&
+            prev.type === t &&
+            Math.abs(prev.lng - lng) < 1e-8 &&
+            Math.abs(prev.lat - lat) < 1e-8
+          ) {
+            return prev;
+          }
+          return { lng, lat, type: t, time, planLocation: loc };
+        });
       } else {
         setHoverTip(null);
       }
@@ -373,7 +416,20 @@ export default function RouteMapPanel({
     [dutyDotsGeoJson?.features.length, stopsGeoJson?.features.length],
   );
 
-  const clearHover = useCallback(() => setHoverTip(null), []);
+  const clearHover = useCallback(() => {
+    setHoverTip(null);
+    setPinGeocodedPlace(undefined);
+  }, []);
+
+  const hoverLocationLine = useMemo(() => {
+    if (!hoverTip) return "—";
+    const fromPin =
+      pinGeocodedPlace !== undefined && pinGeocodedPlace !== "" ? pinGeocodedPlace : "";
+    const plan = hoverTip.planLocation.trim();
+    if (fromPin) return fromPin;
+    if (plan) return plan;
+    return "—";
+  }, [hoverTip, pinGeocodedPlace]);
 
   const interactiveLayerIds = useMemo(() => {
     const ids: string[] = [];
@@ -590,7 +646,7 @@ export default function RouteMapPanel({
                       variant="caption"
                       sx={{ fontWeight: 700, display: "block", lineHeight: 1.35, whiteSpace: "pre-line" }}
                     >
-                      {hoverTip.location.trim() ? hoverTip.location : "—"}
+                      {hoverLocationLine}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4, mt: 0.5 }}>
                       Coordinates

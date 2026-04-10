@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -118,7 +118,7 @@ describe("TripOverviewPage", () => {
       inputs: { currentLocation: "", pickupLocation: "", dropoffLocation: "", cycleHoursUsed: 0 },
     });
 
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={["/overview"]}>
         <Routes>
           <Route path="/overview" element={<TripOverviewPage />} />
@@ -126,6 +126,19 @@ describe("TripOverviewPage", () => {
         </Routes>
       </MemoryRouter>,
     );
+
+    const routeCard = within(container)
+      .getByText("Route Details")
+      .closest(".MuiPaper-root");
+    expect(routeCard).toBeTruthy();
+    const routeForm = within(routeCard as HTMLElement);
+    const comboboxes = routeForm.getAllByRole("combobox");
+    expect(comboboxes).toHaveLength(3);
+    await userEvent.type(comboboxes[0]!, "Chicago, IL");
+    await userEvent.type(comboboxes[1]!, "Chicago, IL");
+    await userEvent.type(comboboxes[2]!, "Denver, CO");
+    await userEvent.clear(routeForm.getByRole("spinbutton"));
+    await userEvent.type(routeForm.getByRole("spinbutton"), "10");
 
     const btns = await screen.findAllByRole("button", { name: /generate route & hos logs/i });
     await userEvent.click(btns[0]!);

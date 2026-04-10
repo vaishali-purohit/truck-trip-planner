@@ -13,6 +13,8 @@ import DailyStatusTotalsCard from "../components/overview/DailyStatusTotalsCard"
 import TripLifecycleSummaryCard from "../components/overview/TripLifecycleSummaryCard";
 import DutyStatusCard from "../components/overview/DutyStatusCard";
 import RemarksCard from "../components/overview/RemarksCard";
+import { env } from "../config/env";
+import { useReverseGeocodeLabeledPoints } from "../hooks/useReverseGeocodeLabeledPoints";
 import {
   formatDateTimeEastern,
   formatStop,
@@ -25,7 +27,7 @@ import {
   formatFullJourneyLine,
   formatLocationAlongFractionRangeWindow,
 } from "../utils/tripRoutePlace";
-import { globalRouteFractionForClockHour } from "../utils/routeDutyGeometry";
+import { globalRouteFractionForClockHour, pointAtGlobalRouteFraction } from "../utils/routeDutyGeometry";
 import { parseTripNoParam, tripOverviewPath } from "../utils/tripRoutes";
 
 export default function TripOverviewPage() {
@@ -146,6 +148,21 @@ export default function TripOverviewPage() {
     };
   }, [cycleHoursUsed, currentLocation, dropoffLocation, pickupLocation, trip]);
 
+  const canGenerateRoute = useMemo(() => {
+    const locationsFilled =
+      currentLocation.trim() !== "" &&
+      pickupLocation.trim() !== "" &&
+      dropoffLocation.trim() !== "";
+    const cycleInRange =
+      cycleHoursUsed > 0 && cycleHoursUsed < 70;
+    return locationsFilled && cycleInRange;
+  }, [
+    currentLocation,
+    cycleHoursUsed,
+    dropoffLocation,
+    pickupLocation,
+  ]);
+
   const isDraft =
     trip == null &&
     (tripNoParam == null || tripNoParam === "") &&
@@ -173,11 +190,6 @@ export default function TripOverviewPage() {
   const logSheets = isDraft ? [] : (trip?.eldLogSheets ?? []);
   const totalLogDays =
     trip != null ? (trip.totalLogDays ?? Math.max(1, logSheets.length)) : 0;
-  const formatLogTabDate = (dateISO: string) =>
-    new Date(dateISO + "T12:00:00").toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    });
   const activeDayIndex =
     logTab === "full" || logSheets.length === 0
       ? null
@@ -232,29 +244,55 @@ export default function TripOverviewPage() {
     selectedDaySheet,
   ]);
 
+  const routeLineCoords = displayTrip.route?.line?.coordinates;
+  const dayGeocodePoints = useMemo(() => {
+    if (!routeLineCoords || routeLineCoords.length < 2) return null;
+    if (activeDayIndex === null || !selectedDaySheet || !logSheets.length || !dayRouteProgress) return null;
+    const pts: { id: string; lng: number; lat: number }[] = [];
+    const [lngS, latS] = pointAtGlobalRouteFraction(routeLineCoords, dayRouteProgress.start);
+    const [lngE, latE] = pointAtGlobalRouteFraction(routeLineCoords, dayRouteProgress.end);
+    pts.push({ id: "dayFrom", lng: lngS, lat: latS }, { id: "dayTo", lng: lngE, lat: latE });
+    const segments = selectedDaySheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
+    const allSegs = selectedDaySheet.segments ?? [];
+    segments.forEach((s, i) => {
+      const midHour = (s.fromHour + s.toHour) / 2;
+      const fr = globalRouteFractionForClockHour(allSegs, midHour, dayRouteProgress);
+      const [lng, lat] = pointAtGlobalRouteFraction(routeLineCoords, fr);
+      pts.push({ id: `seg-${i}`, lng, lat });
+    });
+    return pts;
+  }, [activeDayIndex, dayRouteProgress, logSheets.length, routeLineCoords, selectedDaySheet]);
+
+  const { labels: routePinPlaceNames } = useReverseGeocodeLabeledPoints(env.mapboxToken, dayGeocodePoints);
+
   const dayMilesDriving = dayRouteEndpoints.miles;
-  const dayFromLocation = dayRouteEndpoints.from;
-  const dayToLocation = dayRouteEndpoints.to;
+  const dayFromLocation =
+    routePinPlaceNames.dayFrom?.trim() ? routePinPlaceNames.dayFrom.trim() : dayRouteEndpoints.from;
+  const dayToLocation =
+    routePinPlaceNames.dayTo?.trim() ? routePinPlaceNames.dayTo.trim() : dayRouteEndpoints.to;
   const dayDateISO = selectedDaySheet?.dateISO ?? displayTrip.dateISO;
 
   const remarkEntries = useMemo(() => {
     if (logTab === "full" || selectedDaySheet == null) return [];
     const segments = selectedDaySheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
-    return segments.map((s) => {
+    return segments.map((s, i) => {
       const midHour = (s.fromHour + s.toHour) / 2;
       const segs = selectedDaySheet.segments ?? [];
+      const pinName = routePinPlaceNames[`seg-${i}`]?.trim() ?? "";
       const apiLoc = typeof s.location === "string" ? s.location.trim() : "";
       const routeLoc =
-        apiLoc
-          ? apiLoc
-          : dayRouteProgress && segs.length
-            ? formatLocationAlongFractionRangeWindow(
-                globalRouteFractionForClockHour(segs, midHour, dayRouteProgress),
-                dayRouteProgress,
-                dayFromLocation,
-                dayToLocation,
-              )
-            : fallbackLoc;
+        pinName
+          ? pinName
+          : apiLoc
+            ? apiLoc
+            : dayRouteProgress && segs.length
+              ? formatLocationAlongFractionRangeWindow(
+                  globalRouteFractionForClockHour(segs, midHour, dayRouteProgress),
+                  dayRouteProgress,
+                  dayFromLocation,
+                  dayToLocation,
+                )
+              : fallbackLoc;
       return {
         time: formatClockShort(s.fromHour),
         status: s.status,
@@ -262,7 +300,15 @@ export default function TripOverviewPage() {
         description: s.label || "Duty status change",
       };
     });
-  }, [dayFromLocation, dayRouteProgress, dayToLocation, fallbackLoc, logTab, selectedDaySheet]);
+  }, [
+    dayFromLocation,
+    dayRouteProgress,
+    dayToLocation,
+    fallbackLoc,
+    logTab,
+    routePinPlaceNames,
+    selectedDaySheet,
+  ]);
 
   const dailyTotalsForSidebar = selectedDaySheet?.dutyTotals ?? displayTrip.dutyTotals;
   const sidebarLogDayNumber =
@@ -402,6 +448,7 @@ export default function TripOverviewPage() {
           </SectionCard>
 
           <GenerateRouteButton
+            disabled={!canGenerateRoute}
             submitting={submitting}
             error={submitError}
             onClick={async () => {
@@ -545,7 +592,7 @@ export default function TripOverviewPage() {
                       {logSheets.map((sheet, i) => (
                         <Tab
                           key={`${sheet.dateISO}-${i}`}
-                          label={`Day ${sheet.dayIndex ?? i + 1} — ${formatLogTabDate(sheet.dateISO)}`}
+                          label={`Day ${sheet.dayIndex ?? i + 1}`}
                           value={String(i)}
                         />
                       ))}

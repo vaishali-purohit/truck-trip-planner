@@ -177,30 +177,28 @@ function dutySpecKeyToEldStatus(key: (typeof DUTY_SPEC)[number]["key"]): EldSegm
   }
 }
 
-function averageGlobalFractionForEldStatus(
+/**
+ * One representative ELD block per status for map placement: longest duration wins (ties → earliest).
+ * Route fraction matches the segment clock midpoint so the pin sits where the backend attached
+ * `location` (reverse-geocode along the route for that segment).
+ */
+function representativeEldSegmentForStatus(
   segments: EldLogSegment[],
   status: EldSegmentStatus,
   routeProgress: { start: number; end: number },
-): number | null {
+): { segment: EldLogSegment; globalFrac: number } | null {
   const subs = segments.filter((s) => s.status === status && s.toHour > s.fromHour);
   if (!subs.length) return null;
-  let sum = 0;
-  for (const s of subs) {
-    const midHour = (s.fromHour + s.toHour) / 2;
-    sum += globalRouteFractionForClockHour(segments, midHour, routeProgress);
-  }
-  return sum / subs.length;
-}
-
-function firstEldLocationForStatus(segments: EldLogSegment[], status: EldSegmentStatus): string | undefined {
-  const subs = segments
-    .filter((s) => s.status === status && s.toHour > s.fromHour)
-    .sort((a, b) => a.fromHour - b.fromHour);
-  for (const s of subs) {
-    const t = typeof s.location === "string" ? s.location.trim() : "";
-    if (t) return t;
-  }
-  return undefined;
+  const segment = subs.reduce((a, b) => {
+    const da = a.toHour - a.fromHour;
+    const db = b.toHour - b.fromHour;
+    if (db > da) return b;
+    if (da > db) return a;
+    return a.fromHour <= b.fromHour ? a : b;
+  });
+  const midHour = (segment.fromHour + segment.toHour) / 2;
+  const globalFrac = globalRouteFractionForClockHour(segments, midHour, routeProgress);
+  return { segment, globalFrac };
 }
 
 /** Wall-clock span on the log for this status (min start → max end across blocks). */
@@ -253,12 +251,12 @@ export function buildFourDutyStatusMarkers(
     const endHour = cumHours + hours;
     const status = dutySpecKeyToEldStatus(row.key);
 
-    const eldFrac =
-      eldSegments?.length ? averageGlobalFractionForEldStatus(eldSegments, status, { start: lo, end: hi }) : null;
+    const rep =
+      eldSegments?.length ? representativeEldSegmentForStatus(eldSegments, status, { start: lo, end: hi }) : null;
 
     let globalFrac: number;
-    if (eldFrac != null) {
-      globalFrac = eldFrac;
+    if (rep) {
+      globalFrac = rep.globalFrac;
     } else {
       const jitter = (i + 1) * 1e-5;
       const tNorm =
@@ -268,7 +266,8 @@ export function buildFourDutyStatusMarkers(
 
     cumHours += hours;
 
-    const loc = eldSegments?.length ? firstEldLocationForStatus(eldSegments, status) : undefined;
+    const locRaw = rep?.segment.location;
+    const loc = typeof locRaw === "string" && locRaw.trim() ? locRaw.trim() : undefined;
     const clock = eldClockSpanForStatus(eldSegments, status);
     const fromH = clock ? clock.fromHour : startHour;
     const toH = clock ? clock.toHour : endHour;

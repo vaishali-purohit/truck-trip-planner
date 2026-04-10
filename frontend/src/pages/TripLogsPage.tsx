@@ -5,6 +5,8 @@ import { Link as RouterLink, useParams } from "react-router-dom";
 
 import type { TripDetails } from "../types/trip";
 import { getTripByTripNo } from "../api/tripApi";
+import { env } from "../config/env";
+import { useReverseGeocodeLabeledPoints } from "../hooks/useReverseGeocodeLabeledPoints";
 import SectionCard from "../components/common/SectionCard";
 import PageHeader from "../components/common/PageHeader";
 import EldDutyGraph from "../components/overview/EldDutyGraph";
@@ -13,7 +15,7 @@ import { formatStop } from "../utils/tripFormat";
 import { formatClockShort } from "../utils/clock";
 import { eldSheetFromToLabels } from "../utils/tripEldEndpoints";
 import { formatFullJourneyLine, formatLocationAlongFractionRangeWindow } from "../utils/tripRoutePlace";
-import { globalRouteFractionForClockHour } from "../utils/routeDutyGeometry";
+import { globalRouteFractionForClockHour, pointAtGlobalRouteFraction } from "../utils/routeDutyGeometry";
 import { parseTripNoParam, tripOverviewPath } from "../utils/tripRoutes";
 
 export default function TripLogsPage() {
@@ -69,6 +71,44 @@ export default function TripLogsPage() {
     };
   }, [tripNoParam, routeTripNo]);
 
+  const tripGeocodePoints = useMemo(() => {
+    if (!trip?.route?.line?.coordinates || trip.route.line.coordinates.length < 2) return null;
+    const sheets = trip.eldLogSheets?.length ? trip.eldLogSheets : [];
+    if (!sheets.length) return null;
+    const coords = trip.route.line.coordinates;
+    const dist = Number(trip.totalDistanceMi) || 0;
+    const tripH = Number(trip.drivingHours) || 0;
+    const pts: { id: string; lng: number; lat: number }[] = [];
+    sheets.forEach((sheet, sheetIdx) => {
+      const { range } = eldSheetFromToLabels(
+        sheet,
+        sheetIdx,
+        sheets,
+        trip.pickup,
+        trip.dropoff,
+        dist,
+        tripH,
+      );
+      const [lngS, latS] = pointAtGlobalRouteFraction(coords, range.start);
+      const [lngE, latE] = pointAtGlobalRouteFraction(coords, range.end);
+      pts.push(
+        { id: `d${sheetIdx}-from`, lng: lngS, lat: latS },
+        { id: `d${sheetIdx}-to`, lng: lngE, lat: latE },
+      );
+      const segments = sheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
+      const allSegs = sheet.segments ?? [];
+      segments.forEach((s, segIdx) => {
+        const midHour = (s.fromHour + s.toHour) / 2;
+        const fr = globalRouteFractionForClockHour(allSegs, midHour, range);
+        const [lng, lat] = pointAtGlobalRouteFraction(coords, fr);
+        pts.push({ id: `d${sheetIdx}-s${segIdx}`, lng, lat });
+      });
+    });
+    return pts;
+  }, [trip]);
+
+  const { labels: logRoutePinNames } = useReverseGeocodeLabeledPoints(env.mapboxToken, tripGeocodePoints);
+
   const remarkEntries: RemarkEntry[] = useMemo(() => {
     if (!trip) return [];
     const fallbackLoc = `${formatStop(trip.pickup)} → ${formatStop(trip.dropoff)}`;
@@ -82,7 +122,7 @@ export default function TripLogsPage() {
         day: "numeric",
       });
       const segments = sheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
-      const { from: dayFrom, to: dayTo, range } = eldSheetFromToLabels(
+      const { from: dayFromBase, to: dayToBase, range } = eldSheetFromToLabels(
         sheet,
         sheetIdx,
         sheets,
@@ -91,31 +131,36 @@ export default function TripLogsPage() {
         dist,
         tripH,
       );
+      const dayFrom = logRoutePinNames[`d${sheetIdx}-from`]?.trim() || dayFromBase;
+      const dayTo = logRoutePinNames[`d${sheetIdx}-to`]?.trim() || dayToBase;
       const segs = sheet.segments ?? [];
-      for (const s of segments) {
+      segments.forEach((s, segIdx) => {
         const midHour = (s.fromHour + s.toHour) / 2;
+        const pinName = logRoutePinNames[`d${sheetIdx}-s${segIdx}`]?.trim() ?? "";
         const apiLoc = typeof s.location === "string" ? s.location.trim() : "";
         const routeLoc =
-          apiLoc
-            ? apiLoc
-            : segs.length > 0
-              ? formatLocationAlongFractionRangeWindow(
-                  globalRouteFractionForClockHour(segs, midHour, range),
-                  range,
-                  dayFrom,
-                  dayTo,
-                )
-              : fallbackLoc;
+          pinName
+            ? pinName
+            : apiLoc
+              ? apiLoc
+              : segs.length > 0
+                ? formatLocationAlongFractionRangeWindow(
+                    globalRouteFractionForClockHour(segs, midHour, range),
+                    range,
+                    dayFrom,
+                    dayTo,
+                  )
+                : fallbackLoc;
         out.push({
           time: `${dayStamp} · ${formatClockShort(s.fromHour)}`,
           status: s.status,
           location: routeLoc,
           description: s.label || "Duty status change",
         });
-      }
+      });
     });
     return out;
-  }, [trip]);
+  }, [logRoutePinNames, trip]);
 
   if (loading) {
     return (
@@ -175,7 +220,7 @@ export default function TripLogsPage() {
       />
 
       {sheets.map((sheet, idx) => {
-        const { from: dayFrom, to: dayTo } = eldSheetFromToLabels(
+        const { from: dayFromBase, to: dayToBase } = eldSheetFromToLabels(
           sheet,
           idx,
           sheets,
@@ -184,6 +229,8 @@ export default function TripLogsPage() {
           dist,
           tripH,
         );
+        const dayFrom = logRoutePinNames[`d${idx}-from`]?.trim() || dayFromBase;
+        const dayTo = logRoutePinNames[`d${idx}-to`]?.trim() || dayToBase;
         return (
           <SectionCard key={`${sheet.dateISO}-${idx}`}>
             <Stack spacing={1.5}>
