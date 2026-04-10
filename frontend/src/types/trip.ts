@@ -14,6 +14,9 @@ export interface TripRoute {
     type: "LineString";
     coordinates: LngLat[];
   };
+  /** Geocoded "current location" (driver position); not part of the pickup→dropoff haul line. */
+  currentLngLat?: LngLat;
+  currentLocationName?: string;
   pickupLngLat: LngLat;
   dropoffLngLat: LngLat;
   /** Human-readable place for pickup coordinates (e.g. City, ST). */

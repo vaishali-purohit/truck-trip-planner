@@ -1,4 +1,4 @@
-# API Contracts — Frontend ↔ Backend
+# API Contracts - Frontend ↔ Backend
 
 This document describes the **actual** REST API surface used by the React frontend (`frontend/`) and implemented by the Django backend (`backend/`).
 
@@ -33,6 +33,7 @@ When the backend returns an error via its custom handling, it uses:
 ```
 
 Notes:
+
 - Validation errors raised by DRF (`is_valid(raise_exception=True)`) may return DRF’s default `{field: [...]}` shape in some cases. The frontend’s error parsing is defensive and will surface `message` when present, otherwise it tries to join other fields.
 
 ### IDs
@@ -158,7 +159,7 @@ Notes:
 **Error responses**
 
 - `500 Internal Server Error` if server is missing geocoder config
-- `502 Bad Gateway` if Nominatim is unavailable
+- `502 Bad Gateway` if the OpenRouteService geocoder is unavailable
 
 ## Data contracts (response payloads)
 
@@ -192,13 +193,17 @@ Trip-related endpoints return a wrapper so the response is schema-able and stabl
     "dropoffLngLat": [-104.9903, 39.7392],
     "line": {
       "type": "LineString",
-      "coordinates": [[-87.6298, 41.8781], [-104.9903, 39.7392]]
+      "coordinates": [
+        [-87.6298, 41.8781],
+        [-104.9903, 39.7392]
+      ]
     }
   }
 }
 ```
 
 Notes:
+
 - Coordinates are `[lng, lat]`.
 - `line.coordinates` is used by the map and by some UI geometry helpers.
 
@@ -222,10 +227,25 @@ Notes:
   "eldLogSheets": [
     {
       "dateISO": "2026-04-09",
-      "dutyTotals": { "offDutyHours": 10, "sleeperBerthHours": 0, "drivingHours": 11, "onDutyHours": 3 },
+      "dutyTotals": {
+        "offDutyHours": 10,
+        "sleeperBerthHours": 0,
+        "drivingHours": 11,
+        "onDutyHours": 3
+      },
       "segments": [
-        { "status": "On Duty", "fromHour": 18.3333, "toHour": 19.3333, "label": "Pickup / pre-trip" },
-        { "status": "Driving", "fromHour": 19.3333, "toHour": 24.0, "label": "Driving" }
+        {
+          "status": "On Duty",
+          "fromHour": 18.3333,
+          "toHour": 19.3333,
+          "label": "Pickup / pre-trip"
+        },
+        {
+          "status": "Driving",
+          "fromHour": 19.3333,
+          "toHour": 24.0,
+          "label": "Driving"
+        }
       ]
     }
   ]
@@ -233,6 +253,7 @@ Notes:
 ```
 
 Notes:
+
 - `segments` is optional; when present, the UI prefers it over reconstructing from totals.
 - Segment hours are **hours since local midnight on `dateISO`**, in range `[0, 24]`.
 
@@ -254,7 +275,12 @@ Notes:
 ```json
 {
   "routeInstructions": [
-    { "instruction": "Turn right", "distance_mi": 0.5, "duration_min": 1.2, "road_name": "W Addison St" }
+    {
+      "instruction": "Turn right",
+      "distance_mi": 0.5,
+      "duration_min": 1.2,
+      "road_name": "W Addison St"
+    }
   ]
 }
 ```
@@ -267,4 +293,3 @@ The backend exposes schema + Swagger UI:
 - `GET /api/docs/`
 
 The view definitions include `extend_schema(...)` examples for the key endpoints (see `backend/trips/views.py`).
-

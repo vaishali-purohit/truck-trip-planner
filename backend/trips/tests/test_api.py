@@ -133,7 +133,7 @@ class TestTripApi(APITestCase):
         self.assertEqual(res.data, [])
 
     def test_locations_search_upstream_failure_returns_502(self):
-        LocationService.search.cache_clear()
+        LocationService._geocode_request_cached.cache_clear()
         # LocationService uses requests.Session().get(), not requests.get()
         with patch("trips.services.location_service.requests.Session") as mock_session_cls:
             mock_session_cls.return_value.get.side_effect = requests.RequestException("down")

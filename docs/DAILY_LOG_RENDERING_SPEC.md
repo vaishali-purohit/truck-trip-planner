@@ -1,4 +1,4 @@
-# Daily Log Sheet — Visual Rendering Specification
+# Daily Log Sheet - Visual Rendering Specification
 
 This spec documents how a “daily log sheet” is represented in API data and how it is rendered in the UI as a 24‑hour ELD-style duty graph.
 
@@ -35,12 +35,13 @@ When present, `segments` should be used for rendering the step-path:
 export interface EldLogSegment {
   status: "Off Duty" | "Sleeper" | "Driving" | "On Duty";
   fromHour: number; // hours since midnight, inclusive
-  toHour: number;   // hours since midnight, exclusive
-  label?: string;   // optional UI hint (e.g. "Pickup / pre-trip")
+  toHour: number; // hours since midnight, exclusive
+  label?: string; // optional UI hint (e.g. "Pickup / pre-trip")
 }
 ```
 
 Rules:
+
 - `0 <= fromHour < toHour <= 24`
 - Segments must be **chronological and non-overlapping** for correct rendering.
 - Adjacent segments may share boundaries: `prev.toHour === next.fromHour`.
@@ -104,6 +105,7 @@ If `eldLogSheets` is missing, the UI falls back to a single sheet derived from:
 - `label` is used as a description when present; otherwise it becomes “Duty status change”.
 
 Practical implication:
+
 - If you want the remarks timeline to look meaningful, populate `segments[].label` with human-readable intent (“Pickup / pre-trip”, “30-min break”, “Drop-off”, etc.).
 
 ## PDF rendering parity
@@ -111,4 +113,3 @@ Practical implication:
 The PDF export (`frontend/src/utils/exportTripPdf.ts`) renders a similar 24‑hour graph, but it currently reconstructs a schedule from **totals** (not from API `segments`).
 
 If you want strict parity between UI and PDF, update `exportTripPdf.ts` to prefer `eldLogSheets[0].segments` when present.
-

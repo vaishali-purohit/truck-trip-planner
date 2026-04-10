@@ -1,10 +1,4 @@
-import {
-  Box,
-  Button,
-  Divider,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Button, Divider, Stack, Typography } from "@mui/material";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
@@ -48,7 +42,7 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
               Trip No.
             </Typography>
             <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
-              {trip.tripNo != null ? String(trip.tripNo) : "—"}
+              {trip.tripNo != null ? String(trip.tripNo) : "-"}
             </Typography>
           </Box>
 
@@ -84,7 +78,10 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
           </Box>
 
           <Box sx={{ justifySelf: { md: "end" } }}>
-            <TripStatusChips compliance={trip.compliance} driverLogs={trip.driverLogs} />
+            <TripStatusChips
+              compliance={trip.compliance}
+              driverLogs={trip.driverLogs}
+            />
           </Box>
         </Box>
 
@@ -95,14 +92,32 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
           spacing={{ xs: 1.25, lg: 2 }}
           sx={{ alignItems: { lg: "center" } }}
         >
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ flex: 1 }}>
-            <Stack direction="row" spacing={1} sx={{ flex: 1, alignItems: "flex-start" }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            sx={{ flex: 1 }}
+          >
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flex: 1, alignItems: "flex-start" }}
+            >
               <PlaceOutlinedIcon fontSize="small" color="action" />
-              <LabeledValue label="Pickup location" value={formatStop(trip.pickup)} />
+              <LabeledValue
+                label="Pickup location"
+                value={formatStop(trip.pickup)}
+              />
             </Stack>
-            <Stack direction="row" spacing={1} sx={{ flex: 1, alignItems: "flex-start" }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flex: 1, alignItems: "flex-start" }}
+            >
               <PlaceOutlinedIcon fontSize="small" color="action" />
-              <LabeledValue label="Drop-off location" value={formatStop(trip.dropoff)} />
+              <LabeledValue
+                label="Drop-off location"
+                value={formatStop(trip.dropoff)}
+              />
             </Stack>
           </Stack>
 
@@ -115,8 +130,14 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
               minWidth: { lg: 420 },
             }}
           >
-            <LabeledValue label="Total distance" value={`${trip.totalDistanceMi.toFixed(1)} mi`} />
-            <LabeledValue label="Driving hours" value={`${trip.drivingHours.toFixed(2)} hrs`} />
+            <LabeledValue
+              label="Total distance"
+              value={`${trip.totalDistanceMi.toFixed(1)} mi`}
+            />
+            <LabeledValue
+              label="Driving hours"
+              value={`${trip.drivingHours.toFixed(2)} hrs`}
+            />
             <LabeledValue
               label="Total trip time"
               value={`${trip.totalTripTimeHours.toFixed(1)} hrs`}
@@ -177,4 +198,3 @@ export default function TripCard({ trip, onViewDetails }: TripCardProps) {
     </SectionCard>
   );
 }
-

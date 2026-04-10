@@ -15,6 +15,8 @@ export async function searchLocations(q: string, limit = 8): Promise<LocationSug
     params: { q: query, limit },
     ...(env.apiKey ? { headers: { "X-API-Key": env.apiKey } } : {}),
   });
-  return res.data;
+  const data = res.data;
+  if (!Array.isArray(data)) return [];
+  return data as LocationSuggestion[];
 }
 

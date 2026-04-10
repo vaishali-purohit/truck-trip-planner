@@ -1,4 +1,4 @@
-# FMCSA Hours of Service Rules — Implementation Reference
+# FMCSA Hours of Service Rules - Implementation Reference
 
 This doc is an **implementation reference for this repo**, not a legal guide. The current planner uses a **simplified HOS model** that is “FMCSA-inspired” and designed to generate plausible daily logs for visualization.
 
@@ -68,6 +68,7 @@ It then sets a coarse compliance flag:
 - else `compliance = "warning"`
 
 Important:
+
 - This is **not** a full 70-hour / 8-day rolling window implementation.
 - It is used to drive a UX-level compliance indicator.
 
@@ -81,4 +82,3 @@ The UI recognizes these statuses (strings):
 - `"Sleeper"`
 - `"Driving"`
 - `"On Duty"`
-

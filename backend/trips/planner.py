@@ -54,6 +54,11 @@ def build_trip_plan(
 
     # Geocode using service
     try:
+        current_ll = LocationService.geocode(current_location)
+    except requests.RequestException as e:
+        raise requests.RequestException(f"geocoding_failed: current: {e}") from e
+
+    try:
         pickup_ll = LocationService.geocode(pickup_location)
     except requests.RequestException as e:
         raise requests.RequestException(f"geocoding_failed: pickup: {e}") from e
@@ -143,6 +148,19 @@ def build_trip_plan(
         for k in duty_totals:
             duty_totals[k] += float(dt.get(k, 0))
 
+    route_payload = {
+        "currentLngLat": [current_ll["lng"], current_ll["lat"]],
+        "pickupLngLat": [pickup_ll["lng"], pickup_ll["lat"]],
+        "dropoffLngLat": [dropoff_ll["lng"], dropoff_ll["lat"]],
+        "line": {
+            "type": "LineString",
+            "coordinates": line_coords,
+        },
+    }
+    current_display = current_ll.get("display_name")
+    if current_display:
+        route_payload["currentLocationName"] = current_display
+
     # Final response
     return {
         "dateISO": datetime.now(tz=tz).date().isoformat(),
@@ -160,14 +178,7 @@ def build_trip_plan(
         "compliance": compliance,
         "estimatedArrivalISO": eta,
         "stopsCount": stops["stopCount"],
-        "route": {
-            "pickupLngLat": [pickup_ll["lng"], pickup_ll["lat"]],
-            "dropoffLngLat": [dropoff_ll["lng"], dropoff_ll["lat"]],
-            "line": {
-                "type": "LineString",
-                "coordinates": line_coords,
-            },
-        },
+        "route": route_payload,
         "routeInstructions": build_turn_by_turn(route),
         "stopPlan": stops,
         "eldLogSheets": logs,

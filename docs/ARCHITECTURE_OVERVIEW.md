@@ -5,15 +5,15 @@ This repo is a small full-stack app:
 - **Backend**: Django + Django REST Framework (DRF) API that generates a trip plan and persists it.
 - **Frontend**: React dashboard (Vite) that collects route inputs, calls the planner API, and renders route + logs.
 - **External services**:
-  - **Geocoding**: OpenStreetMap Nominatim (for location autocomplete in the UI; also used by planner).
-  - **Routing**: OSRM routing service (planner gets distance/duration + optional step instructions).
+  - **Geocoding**: [OpenRouteService Geocode API](https://openrouteservice.org/dev/#/api-docs/geocode) (Pelias-backed; autocomplete in the UI + forward geocode for the planner).
+  - **Routing**: OpenRouteService Directions (same API key tier as geocoding; truck profile `driving-hgv` by default).
 
 ## Key flows
 
 ### 1) Location autocomplete
 
 - Frontend calls `GET /api/locations/search/?q=...` (see `backend/trips/views.py` → `LocationSearchView`).
-- Backend calls Nominatim and returns a lightweight array of `{label, lat?, lon?}` suggestions.
+- Backend calls OpenRouteService `/geocode/autocomplete` (`size` = requested limit) and returns a lightweight array of `{label, lat?, lon?}` suggestions (matches Basic-key “Geocode Autocomplete” quota).
 - Frontend uses the `label` as a human-friendly selection.
 
 ### 2) Trip planning
@@ -44,12 +44,13 @@ This repo is a small full-stack app:
 Backend reads environment variables via `dotenv` in `backend/config/settings.py`.
 
 - **CORS**: `FRONTEND_ORIGIN` must match the frontend dev origin (e.g. `http://localhost:5173`).
-- **Location search** (backend → Nominatim):
-  - `GEOCODER_NOMINATIM_BASE_URL` (e.g. `https://nominatim.openstreetmap.org`)
-  - `GEOCODER_USER_AGENT` (required by Nominatim usage policy)
-- **Trip planning** (planner → geocode + OSRM):
-  - `GEOCODE_URL`, `GEOCODE_UA` (used by `geocode_us_location` in `backend/trips/planner.py`)
-  - `OSRM_URL` (used by `osrm_route` in `backend/trips/planner.py`)
+- **Geocoding** (backend → OpenRouteService):
+  - `GEOCODER_ORS_BASE_URL` (e.g. `https://api.openrouteservice.org`)
+  - `GEOCODER_API_KEY` (required in production)
+  - Optional: `GEOCODER_COUNTRY_CODES`, `GEOCODER_MIN_INTERVAL_SECONDS`, `GEOCODER_HTTP_USER_AGENT`
+- **Trip planning** (planner → ORS geocode + ORS directions):
+  - `LocationService.geocode` → ORS `/geocode/autocomplete` with `size=1` (see `backend/trips/services/location_service.py`)
+  - `RouteService.get_route` → ORS `POST /v2/directions/{profile}/json` (encoded polyline decoded to a line; see `backend/trips/services/route_service.py`)
 
 For the exact variable list, see `backend/.env.template` and `frontend/.env.template`.
 

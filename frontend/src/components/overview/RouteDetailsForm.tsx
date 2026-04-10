@@ -1,6 +1,15 @@
-import { Autocomplete, Box, CircularProgress, Stack, TextField, Typography } from "@mui/material";
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Box,
+  CircularProgress,
+  List,
+  ListItemButton,
+  ListItemText,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { useEffect, useRef, useState } from "react";
 import { searchLocations, type LocationSuggestion } from "../../api/locationApi";
 
 const FIELD_SX = {
@@ -20,9 +29,6 @@ export interface RouteDetailsFormProps {
   onCycleChange: (v: number) => void;
 }
 
-/**
- * Editable route fields: US location autocomplete + cycle hours (clamped 0–70; Generate requires 1–69).
- */
 export default function RouteDetailsForm({
   currentLocation,
   pickupLocation,
@@ -39,21 +45,9 @@ export default function RouteDetailsForm({
         Route Details
       </Typography>
 
-      <LocationAutocomplete
-        label="Current Location"
-        value={currentLocation}
-        onChange={onCurrentChange}
-      />
-      <LocationAutocomplete
-        label="Pickup Location"
-        value={pickupLocation}
-        onChange={onPickupChange}
-      />
-      <LocationAutocomplete
-        label="Drop-off Location"
-        value={dropoffLocation}
-        onChange={onDropoffChange}
-      />
+      <LocationAutocomplete label="Current Location" value={currentLocation} onChange={onCurrentChange} />
+      <LocationAutocomplete label="Pickup Location" value={pickupLocation} onChange={onPickupChange} />
+      <LocationAutocomplete label="Drop-off Location" value={dropoffLocation} onChange={onDropoffChange} />
 
       <Box>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
@@ -96,11 +90,9 @@ function LocationAutocomplete({
 }) {
   const [options, setOptions] = useState<LocationSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
   const activeRequestId = useRef(0);
-
-  const optionLabels = useMemo(() => {
-    return Array.from(new Set(options.map((o) => o.label).filter(Boolean)));
-  }, [options]);
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const q = value.trim();
@@ -116,7 +108,7 @@ function LocationAutocomplete({
       try {
         const results = await searchLocations(q, 8);
         if (activeRequestId.current !== requestId) return;
-        setOptions(results);
+        setOptions(Array.isArray(results) ? results : []);
       } catch {
         if (activeRequestId.current !== requestId) return;
         setOptions([]);
@@ -128,44 +120,72 @@ function LocationAutocomplete({
     return () => window.clearTimeout(handle);
   }, [value]);
 
+  const showList = open && options.length > 0;
+
   return (
-    <Autocomplete
-      freeSolo
-      options={optionLabels}
-      loading={loading}
-      inputValue={value}
-      onInputChange={(_, newInput) => onChange(newInput)}
-      onChange={(_, newValue) => {
-        if (typeof newValue === "string") onChange(newValue);
+    <Box
+      sx={{ position: "relative" }}
+      onMouseDown={(e) => {
+        // Keep focus on input when clicking the list (avoid blur-before-click).
+        const t = e.target as HTMLElement;
+        if (t.closest("[data-location-suggestion]")) e.preventDefault();
       }}
-      renderInput={(params) => (
-        (() => {
-          const p = params as unknown as {
-            slotProps?: { input?: { endAdornment?: ReactNode } };
-            InputProps?: { endAdornment?: ReactNode };
-          };
-          return (
-        <TextField
-          {...params}
-          label={label}
-          size="small"
-          sx={FIELD_SX}
-          slotProps={{
-            ...p.slotProps,
-            input: {
-              ...(p.slotProps?.input ?? {}),
-              endAdornment: (
-                <>
-                  {loading ? <CircularProgress color="inherit" size={16} /> : null}
-                  {(p.slotProps?.input?.endAdornment ?? p.InputProps?.endAdornment) || null}
-                </>
-              ),
-            },
+    >
+      <TextField
+        label={label}
+        size="small"
+        fullWidth
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => {
+          if (blurTimer.current) {
+            clearTimeout(blurTimer.current);
+            blurTimer.current = null;
+          }
+          setOpen(true);
+        }}
+        onBlur={() => {
+          blurTimer.current = setTimeout(() => setOpen(false), 150);
+        }}
+        slotProps={{
+          input: {
+            endAdornment: loading ? <CircularProgress color="inherit" size={16} /> : null,
+          },
+        }}
+        sx={FIELD_SX}
+      />
+      {showList ? (
+        <Paper
+          elevation={4}
+          sx={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            zIndex: 20,
+            mt: 0.5,
+            maxHeight: 260,
+            overflow: "auto",
           }}
-        />
-          );
-        })()
-      )}
-    />
+        >
+          <List dense disablePadding>
+            {options.map((o, i) => (
+              <ListItemButton
+                key={`${o.label}-${i}`}
+                data-location-suggestion
+                onClick={() => {
+                  onChange(o.label);
+                  setOpen(false);
+                }}
+              >
+                <ListItemText primary={o.label} />
+              </ListItemButton>
+            ))}
+          </List>
+        </Paper>
+      ) : null}
+    </Box>
   );
 }

@@ -10,12 +10,20 @@ import { useReverseGeocodeLabeledPoints } from "../hooks/useReverseGeocodeLabele
 import SectionCard from "../components/common/SectionCard";
 import PageHeader from "../components/common/PageHeader";
 import EldDutyGraph from "../components/overview/EldDutyGraph";
-import RemarksTimeline, { type RemarkEntry } from "../components/overview/RemarksTimeline";
+import RemarksTimeline, {
+  type RemarkEntry,
+} from "../components/overview/RemarksTimeline";
 import { formatStop } from "../utils/tripFormat";
 import { formatClockShort } from "../utils/clock";
 import { eldSheetFromToLabels } from "../utils/tripEldEndpoints";
-import { formatFullJourneyLine, formatLocationAlongFractionRangeWindow } from "../utils/tripRoutePlace";
-import { globalRouteFractionForClockHour, pointAtGlobalRouteFraction } from "../utils/routeDutyGeometry";
+import {
+  formatFullJourneyLine,
+  formatLocationAlongFractionRangeWindow,
+} from "../utils/tripRoutePlace";
+import {
+  globalRouteFractionForClockHour,
+  pointAtGlobalRouteFraction,
+} from "../utils/routeDutyGeometry";
 import { parseTripNoParam, tripOverviewPath } from "../utils/tripRoutes";
 
 export default function TripLogsPage() {
@@ -24,7 +32,10 @@ export default function TripLogsPage() {
   const [trip, setTrip] = useState<TripDetails | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const routeTripNo = useMemo(() => parseTripNoParam(tripNoParam), [tripNoParam]);
+  const routeTripNo = useMemo(
+    () => parseTripNoParam(tripNoParam),
+    [tripNoParam],
+  );
   const invalidTripNoInUrl =
     tripNoParam != null && tripNoParam !== "" && routeTripNo == null;
 
@@ -81,7 +92,11 @@ export default function TripLogsPage() {
   }, [tripNoParam, routeTripNo]);
 
   const tripGeocodePoints = useMemo(() => {
-    if (!trip?.route?.line?.coordinates || trip.route.line.coordinates.length < 2) return null;
+    if (
+      !trip?.route?.line?.coordinates ||
+      trip.route.line.coordinates.length < 2
+    )
+      return null;
     const sheets = trip.eldLogSheets?.length ? trip.eldLogSheets : [];
     if (!sheets.length) return null;
     const coords = trip.route.line.coordinates;
@@ -104,7 +119,8 @@ export default function TripLogsPage() {
         { id: `d${sheetIdx}-from`, lng: lngS, lat: latS },
         { id: `d${sheetIdx}-to`, lng: lngE, lat: latE },
       );
-      const segments = sheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
+      const segments =
+        sheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
       const allSegs = sheet.segments ?? [];
       segments.forEach((s, segIdx) => {
         const midHour = (s.fromHour + s.toHour) / 2;
@@ -116,7 +132,10 @@ export default function TripLogsPage() {
     return pts;
   }, [trip]);
 
-  const { labels: logRoutePinNames } = useReverseGeocodeLabeledPoints(env.mapboxToken, tripGeocodePoints);
+  const { labels: logRoutePinNames } = useReverseGeocodeLabeledPoints(
+    env.mapboxToken,
+    tripGeocodePoints,
+  );
 
   const remarkEntries: RemarkEntry[] = useMemo(() => {
     if (!trip) return [];
@@ -126,12 +145,20 @@ export default function TripLogsPage() {
     const tripH = Number(trip.drivingHours) || 0;
     const out: RemarkEntry[] = [];
     sheets.forEach((sheet, sheetIdx) => {
-      const dayStamp = new Date(sheet.dateISO + "T12:00:00").toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
-      const segments = sheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
-      const { from: dayFromBase, to: dayToBase, range } = eldSheetFromToLabels(
+      const dayStamp = new Date(sheet.dateISO + "T12:00:00").toLocaleDateString(
+        undefined,
+        {
+          month: "short",
+          day: "numeric",
+        },
+      );
+      const segments =
+        sheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
+      const {
+        from: dayFromBase,
+        to: dayToBase,
+        range,
+      } = eldSheetFromToLabels(
         sheet,
         sheetIdx,
         sheets,
@@ -140,26 +167,26 @@ export default function TripLogsPage() {
         dist,
         tripH,
       );
-      const dayFrom = logRoutePinNames[`d${sheetIdx}-from`]?.trim() || dayFromBase;
+      const dayFrom =
+        logRoutePinNames[`d${sheetIdx}-from`]?.trim() || dayFromBase;
       const dayTo = logRoutePinNames[`d${sheetIdx}-to`]?.trim() || dayToBase;
       const segs = sheet.segments ?? [];
       segments.forEach((s, segIdx) => {
         const midHour = (s.fromHour + s.toHour) / 2;
-        const pinName = logRoutePinNames[`d${sheetIdx}-s${segIdx}`]?.trim() ?? "";
+        const pinName =
+          logRoutePinNames[`d${sheetIdx}-s${segIdx}`]?.trim() ?? "";
         const apiLoc = typeof s.location === "string" ? s.location.trim() : "";
         const routeLoc =
-          pinName
-            ? pinName
-            : apiLoc
-              ? apiLoc
-              : segs.length > 0
-                ? formatLocationAlongFractionRangeWindow(
-                    globalRouteFractionForClockHour(segs, midHour, range),
-                    range,
-                    dayFrom,
-                    dayTo,
-                  )
-                : fallbackLoc;
+          pinName ? pinName
+          : apiLoc ? apiLoc
+          : segs.length > 0 ?
+            formatLocationAlongFractionRangeWindow(
+              globalRouteFractionForClockHour(segs, midHour, range),
+              range,
+              dayFrom,
+              dayTo,
+            )
+          : fallbackLoc;
         out.push({
           time: `${dayStamp} · ${formatClockShort(s.fromHour)}`,
           status: s.status,
@@ -182,8 +209,8 @@ export default function TripLogsPage() {
   if (invalidTripNoInUrl) {
     return (
       <Typography variant="body2" color="text.secondary">
-        Invalid trip number in the URL. Open Trip History and use a valid trip link (for example{" "}
-        <strong>{tripOverviewPath(1900)}/logs</strong>).
+        Invalid trip number in the URL. Open Trip History and use a valid trip
+        link (for example <strong>{tripOverviewPath(1900)}/logs</strong>).
       </Typography>
     );
   }
@@ -196,7 +223,10 @@ export default function TripLogsPage() {
     );
   }
 
-  const sheets = trip.eldLogSheets?.length ? trip.eldLogSheets : [{ dateISO: trip.dateISO, dutyTotals: trip.dutyTotals }];
+  const sheets =
+    trip.eldLogSheets?.length ?
+      trip.eldLogSheets
+    : [{ dateISO: trip.dateISO, dutyTotals: trip.dutyTotals }];
   const dist = Number(trip.totalDistanceMi) || 0;
   const tripH = Number(trip.drivingHours) || 0;
 
@@ -206,7 +236,8 @@ export default function TripLogsPage() {
         title="Driver Logs"
         subtitle={
           <>
-            Trip No.: <strong>{trip.tripNo != null ? String(trip.tripNo) : "—"}</strong> •{" "}
+            Trip No.:{" "}
+            <strong>{trip.tripNo != null ? String(trip.tripNo) : "-"}</strong> •{" "}
             {formatFullJourneyLine(trip.pickup, trip.dropoff)}
           </>
         }
@@ -214,14 +245,23 @@ export default function TripLogsPage() {
           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button
               component={RouterLink}
-              to={trip.tripNo != null ? tripOverviewPath(trip.tripNo) : "/overview"}
+              to={
+                trip.tripNo != null ?
+                  tripOverviewPath(trip.tripNo)
+                : "/overview"
+              }
               variant="outlined"
               size="small"
               startIcon={<ArrowBackOutlinedIcon />}
             >
               Back to Overview
             </Button>
-            <Button component={RouterLink} to="/history" variant="outlined" size="small">
+            <Button
+              component={RouterLink}
+              to="/history"
+              variant="outlined"
+              size="small"
+            >
               Trip History
             </Button>
           </Stack>
@@ -244,16 +284,28 @@ export default function TripLogsPage() {
           <SectionCard key={`${sheet.dateISO}-${idx}`}>
             <Stack spacing={1.5}>
               <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
-                Record of Duty Status (24-hour) — {new Date(sheet.dateISO + "T00:00:00").toDateString()}
+                Record of Duty Status (24-hour) -{" "}
+                {new Date(sheet.dateISO + "T00:00:00").toDateString()}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontWeight: 600 }}
+              >
                 From: {dayFrom}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontWeight: 600 }}
+              >
                 To: {dayTo}
               </Typography>
               <Divider />
-              <EldDutyGraph dutyTotals={sheet.dutyTotals} segments={sheet.segments} />
+              <EldDutyGraph
+                dutyTotals={sheet.dutyTotals}
+                segments={sheet.segments}
+              />
             </Stack>
           </SectionCard>
         );

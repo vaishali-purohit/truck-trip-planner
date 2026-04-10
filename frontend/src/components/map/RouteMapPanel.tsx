@@ -16,14 +16,25 @@ import Map, {
 } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-import type { DutyStatusTotals, EldLogSegment, TripRoute, TripStop } from "../../types/trip";
-import { buildFourDutyStatusMarkers, sliceRouteByFractionRange } from "../../utils/routeDutyGeometry";
+import type {
+  DutyStatusTotals,
+  EldLogSegment,
+  TripRoute,
+  TripStop,
+} from "../../types/trip";
+import {
+  buildFourDutyStatusMarkers,
+  sliceRouteByFractionRange,
+} from "../../utils/routeDutyGeometry";
 import {
   formatLocationAlongFractionRangeWindow,
   formatLocationAlongFullRoute,
 } from "../../utils/tripRoutePlace";
 import { env } from "../../config/env";
-import { MAPBOX_DEFAULT_STYLE_DARK, MAPBOX_DEFAULT_STYLE_LIGHT } from "../../config/constants";
+import {
+  MAPBOX_DEFAULT_STYLE_DARK,
+  MAPBOX_DEFAULT_STYLE_LIGHT,
+} from "../../config/constants";
 import { mapboxReversePlaceName } from "../../utils/mapboxReverseGeocode";
 
 export interface RouteMapPanelProps {
@@ -70,16 +81,23 @@ function formatStopLabel(s: TripStop) {
 
 /** Lat/lon for map popups (WGS84). */
 function formatLatLonLine(lat: number, lng: number): string {
-  const la = Number.isFinite(lat) ? lat.toFixed(5) : "—";
-  const lo = Number.isFinite(lng) ? lng.toFixed(5) : "—";
+  const la = Number.isFinite(lat) ? lat.toFixed(5) : "-";
+  const lo = Number.isFinite(lng) ? lng.toFixed(5) : "-";
   return `Lat ${la}, Lon ${lo}`;
 }
 
-function formatDutyClockWindow(dateISO: string, startHour: number, endHour: number): string {
+function formatDutyClockWindow(
+  dateISO: string,
+  startHour: number,
+  endHour: number,
+): string {
   const base = new Date(`${dateISO}T00:00:00`);
   const a = new Date(base.getTime() + startHour * 3600 * 1000);
   const b = new Date(base.getTime() + endHour * 3600 * 1000);
-  const opt: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit" };
+  const opt: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "2-digit",
+  };
   return `${a.toLocaleTimeString(undefined, opt)} – ${b.toLocaleTimeString(undefined, opt)}`;
 }
 
@@ -111,7 +129,9 @@ export default function RouteMapPanel({
     planLocation: string;
   } | null>(null);
   /** `undefined` = not loaded yet; `""` = no result; otherwise Mapbox `place_name` at the pin. */
-  const [pinGeocodedPlace, setPinGeocodedPlace] = useState<string | undefined>(undefined);
+  const [pinGeocodedPlace, setPinGeocodedPlace] = useState<string | undefined>(
+    undefined,
+  );
 
   const lightStyle = env.mapboxStyleLight || MAPBOX_DEFAULT_STYLE_LIGHT;
   const darkStyle = env.mapboxStyleDark || MAPBOX_DEFAULT_STYLE_DARK;
@@ -121,7 +141,8 @@ export default function RouteMapPanel({
   const coords = route?.line?.coordinates;
 
   const daySliceCoords = useMemo(() => {
-    if (!coords?.length || coords.length < 2 || !routeProgress || !dayRouteMode) return null;
+    if (!coords?.length || coords.length < 2 || !routeProgress || !dayRouteMode)
+      return null;
     const slice = sliceRouteByFractionRange(coords, routeProgress);
     return slice.length >= 2 ? slice : null;
   }, [coords, dayRouteMode, routeProgress]);
@@ -145,9 +166,17 @@ export default function RouteMapPanel({
     }> = [];
 
     const routeSpan =
-      dayRouteMode && routeProgress ? routeProgress : { start: 0 as number, end: 1 as number };
-    const eldForMarkers = dayRouteMode && eldSegments?.length ? eldSegments : null;
-    markers = buildFourDutyStatusMarkers(coords, dutyTotals, routeSpan, eldForMarkers).map((m) => ({
+      dayRouteMode && routeProgress ? routeProgress : (
+        { start: 0 as number, end: 1 as number }
+      );
+    const eldForMarkers =
+      dayRouteMode && eldSegments?.length ? eldSegments : null;
+    markers = buildFourDutyStatusMarkers(
+      coords,
+      dutyTotals,
+      routeSpan,
+      eldForMarkers,
+    ).map((m) => ({
       coordinates: m.coordinates as [number, number],
       label: m.label,
       color: m.color,
@@ -163,9 +192,9 @@ export default function RouteMapPanel({
       type: "FeatureCollection" as const,
       features: markers.map((m) => {
         const timeStr =
-          dateISO != null && dateISO.length >= 8
-            ? formatDutyClockWindow(dateISO, m.fromHour, m.toHour)
-            : `${m.fromHour.toFixed(2)}h – ${m.toHour.toFixed(2)}h`;
+          dateISO != null && dateISO.length >= 8 ?
+            formatDutyClockWindow(dateISO, m.fromHour, m.toHour)
+          : `${m.fromHour.toFixed(2)}h – ${m.toHour.toFixed(2)}h`;
         return {
           type: "Feature" as const,
           properties: {
@@ -173,16 +202,19 @@ export default function RouteMapPanel({
             detailType: m.label,
             detailTime: timeStr,
             detailLocation:
-              m.location?.trim()
-                ? m.location.trim()
-                : dayRouteMode && routeProgress && dayStartLabel && dayEndLabel
-                  ? formatLocationAlongFractionRangeWindow(
-                      m.pathMidFraction,
-                      routeProgress,
-                      dayStartLabel,
-                      dayEndLabel,
-                    )
-                  : formatLocationAlongFullRoute(m.pathMidFraction, pickup, dropoff),
+              m.location?.trim() ? m.location.trim()
+              : dayRouteMode && routeProgress && dayStartLabel && dayEndLabel ?
+                formatLocationAlongFractionRangeWindow(
+                  m.pathMidFraction,
+                  routeProgress,
+                  dayStartLabel,
+                  dayEndLabel,
+                )
+              : formatLocationAlongFullRoute(
+                  m.pathMidFraction,
+                  pickup,
+                  dropoff,
+                ),
           },
           geometry: {
             type: "Point" as const,
@@ -204,8 +236,10 @@ export default function RouteMapPanel({
     routeProgress,
   ]);
 
+  const currentLngLat = route?.currentLngLat;
   const pickupLngLat = route?.pickupLngLat;
   const dropoffLngLat = route?.dropoffLngLat;
+  const currentDotColor = theme.palette.info.main;
   const pickupDotColor = theme.palette.success.main;
   const dropoffDotColor = theme.palette.error.main;
 
@@ -216,7 +250,12 @@ export default function RouteMapPanel({
       geometry: { type: "Point"; coordinates: [number, number] };
     }> = [];
 
-    if (dayRouteMode && daySliceCoords?.length && dayStartLabel && dayEndLabel) {
+    if (
+      dayRouteMode &&
+      daySliceCoords?.length &&
+      dayStartLabel &&
+      dayEndLabel
+    ) {
       const a = daySliceCoords[0]!;
       const b = daySliceCoords[daySliceCoords.length - 1]!;
       features.push({
@@ -240,6 +279,19 @@ export default function RouteMapPanel({
         geometry: { type: "Point", coordinates: [b[0], b[1]] },
       });
     } else {
+      if (currentLngLat) {
+        const name = route?.currentLocationName?.trim() || "Current location";
+        features.push({
+          type: "Feature",
+          properties: {
+            dotColor: currentDotColor,
+            detailType: "Current location",
+            detailTime: "",
+            detailLocation: name,
+          },
+          geometry: { type: "Point", coordinates: currentLngLat },
+        });
+      }
       if (pickupLngLat) {
         const name =
           route?.pickupLocationName?.trim() ||
@@ -272,8 +324,12 @@ export default function RouteMapPanel({
       }
     }
 
-    return features.length ? { type: "FeatureCollection" as const, features } : null;
+    return features.length ?
+        { type: "FeatureCollection" as const, features }
+      : null;
   }, [
+    currentDotColor,
+    currentLngLat,
     dayEndLabel,
     dayRouteMode,
     daySliceCoords,
@@ -284,6 +340,7 @@ export default function RouteMapPanel({
     pickup,
     pickupDotColor,
     pickupLngLat,
+    route?.currentLocationName,
     route?.dropoffLocationName,
     route?.pickupLocationName,
   ]);
@@ -291,9 +348,9 @@ export default function RouteMapPanel({
   const initialViewState = useMemo(() => {
     const coords = route?.line?.coordinates;
     const slice =
-      dayRouteMode && routeProgress && coords?.length
-        ? sliceRouteByFractionRange(coords, routeProgress)
-        : null;
+      dayRouteMode && routeProgress && coords?.length ?
+        sliceRouteByFractionRange(coords, routeProgress)
+      : null;
     const line = slice?.length ? slice : coords;
 
     if (line?.length) {
@@ -313,16 +370,38 @@ export default function RouteMapPanel({
 
   const fitRouteBounds = useCallback(() => {
     const pts = lineCoordinates;
-    if (!pts?.length) return;
-    const lons = pts.map((c) => c[0]);
-    const lats = pts.map((c) => c[1]);
+    if (!pts?.length && !currentLngLat) return;
+    const lons = pts?.length ? pts.map((c) => c[0]) : [];
+    const lats = pts?.length ? pts.map((c) => c[1]) : [];
+    if (currentLngLat && !dayRouteMode) {
+      lons.push(currentLngLat[0]);
+      lats.push(currentLngLat[1]);
+    }
+    if (!lons.length || !lats.length) return;
+    let minLon = Math.min(...lons);
+    let maxLon = Math.max(...lons);
+    let minLat = Math.min(...lats);
+    let maxLat = Math.max(...lats);
+    const pad = 0.06;
+    if (maxLon - minLon < 1e-6) {
+      minLon -= pad;
+      maxLon += pad;
+    }
+    if (maxLat - minLat < 1e-6) {
+      minLat -= pad;
+      maxLat += pad;
+    }
     const bounds: [[number, number], [number, number]] = [
-      [Math.min(...lons), Math.min(...lats)],
-      [Math.max(...lons), Math.max(...lats)],
+      [minLon, minLat],
+      [maxLon, maxLat],
     ];
     mapRef.current?.resize();
-    mapRef.current?.fitBounds(bounds, { padding: 60, duration: 650, maxZoom: dayRouteMode ? 11 : 10 });
-  }, [dayRouteMode, lineCoordinates]);
+    mapRef.current?.fitBounds(bounds, {
+      padding: 60,
+      duration: 650,
+      maxZoom: dayRouteMode ? 11 : 10,
+    });
+  }, [currentLngLat, dayRouteMode, lineCoordinates]);
 
   useEffect(() => {
     if (!mapLoaded) return;
@@ -400,10 +479,21 @@ export default function RouteMapPanel({
       const f = feats[0];
       const t = f?.properties?.detailType;
       const g = f?.geometry;
-      if (typeof t === "string" && g && g.type === "Point" && Array.isArray(g.coordinates)) {
+      if (
+        typeof t === "string" &&
+        g &&
+        g.type === "Point" &&
+        Array.isArray(g.coordinates)
+      ) {
         const [lng, lat] = g.coordinates as [number, number];
-        const time = typeof f.properties?.detailTime === "string" ? f.properties.detailTime : "";
-        const loc = typeof f.properties?.detailLocation === "string" ? f.properties.detailLocation : "";
+        const time =
+          typeof f.properties?.detailTime === "string" ?
+            f.properties.detailTime
+          : "";
+        const loc =
+          typeof f.properties?.detailLocation === "string" ?
+            f.properties.detailLocation
+          : "";
         setHoverTip((prev) => {
           if (
             prev &&
@@ -428,13 +518,15 @@ export default function RouteMapPanel({
   }, []);
 
   const hoverLocationLine = useMemo(() => {
-    if (!hoverTip) return "—";
+    if (!hoverTip) return "-";
     const fromPin =
-      pinGeocodedPlace !== undefined && pinGeocodedPlace !== "" ? pinGeocodedPlace : "";
+      pinGeocodedPlace !== undefined && pinGeocodedPlace !== "" ?
+        pinGeocodedPlace
+      : "";
     const plan = hoverTip.planLocation.trim();
     if (fromPin) return fromPin;
     if (plan) return plan;
-    return "—";
+    return "-";
   }, [hoverTip, pinGeocodedPlace]);
 
   const interactiveLayerIds = useMemo(() => {
@@ -477,9 +569,9 @@ export default function RouteMapPanel({
       padded={false}
       sx={{
         height: "100%",
-        ...(fillViewport
-          ? { flex: 1, minHeight: 0 }
-          : { minHeight: { xs: 380, md: 520 } }),
+        ...(fillViewport ?
+          { flex: 1, minHeight: 0 }
+        : { minHeight: { xs: 380, md: 520 } }),
       }}
     >
       <Box
@@ -496,13 +588,33 @@ export default function RouteMapPanel({
         <Stack
           direction="row"
           spacing={1}
-          sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1, columnGap: 1, minWidth: 0, width: "100%" }}
+          sx={{
+            alignItems: "center",
+            flexWrap: "wrap",
+            rowGap: 1,
+            columnGap: 1,
+            minWidth: 0,
+            width: "100%",
+          }}
         >
           <MapOutlinedIcon color="action" sx={{ flexShrink: 0 }} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, minWidth: 0, flex: { xs: "1 1 100%", sm: "0 1 auto" } }}>
-            {dayRouteMode ? "Route Map — selected day" : "Route Map"}
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: 800,
+              minWidth: 0,
+              flex: { xs: "1 1 100%", sm: "0 1 auto" },
+            }}
+          >
+            {dayRouteMode ? "Route Map - selected day" : "Route Map"}
           </Typography>
-          <Box sx={{ flex: { xs: "none", sm: 1 }, minWidth: 0, display: { xs: "none", sm: "block" } }} />
+          <Box
+            sx={{
+              flex: { xs: "none", sm: 1 },
+              minWidth: 0,
+              display: { xs: "none", sm: "block" },
+            }}
+          />
 
           <Stack
             direction="row"
@@ -516,7 +628,11 @@ export default function RouteMapPanel({
             }}
           >
             {legendItems.map((item) => (
-              <LegendDot key={item.label} label={item.label} color={item.color} />
+              <LegendDot
+                key={item.label}
+                label={item.label}
+                color={item.color}
+              />
             ))}
           </Stack>
         </Stack>
@@ -532,7 +648,7 @@ export default function RouteMapPanel({
             overflow: "hidden",
           })}
         >
-          {!mapboxToken ? (
+          {!mapboxToken ?
             <Box
               sx={{
                 height: "100%",
@@ -545,11 +661,11 @@ export default function RouteMapPanel({
                 textAlign: "center",
               }}
             >
-              Add <code>VITE_MAPBOX_TOKEN</code> to your <code>frontend/.env</code> (in the{" "}
-              <code>frontend</code> folder), then restart <code>npm run dev</code>.
+              Add <code>VITE_MAPBOX_TOKEN</code> to your{" "}
+              <code>frontend/.env</code> (in the <code>frontend</code> folder),
+              then restart <code>npm run dev</code>.
             </Box>
-          ) : (
-            <Map
+          : <Map
               mapboxAccessToken={mapboxToken}
               initialViewState={initialViewState}
               mapStyle={mapStyle}
@@ -563,11 +679,14 @@ export default function RouteMapPanel({
               onMouseLeave={clearHover}
               onError={(e) => {
                 const msg =
-                  e.error instanceof Error
-                    ? e.error.message
-                    : typeof e.error === "object" && e.error && "message" in e.error
-                      ? String((e.error as { message?: string }).message)
-                      : "Map failed to load.";
+                  e.error instanceof Error ? e.error.message
+                  : (
+                    typeof e.error === "object" &&
+                    e.error &&
+                    "message" in e.error
+                  ) ?
+                    String((e.error as { message?: string }).message)
+                  : "Map failed to load.";
                 setMapError(msg);
               }}
               onLoad={() => {
@@ -579,13 +698,13 @@ export default function RouteMapPanel({
               <NavigationControl position="top-left" showCompass={false} />
               <FullscreenControl position="top-right" />
 
-              {routeGeoJson ? (
+              {routeGeoJson ?
                 <Source id="route-display" type="geojson" data={routeGeoJson}>
                   <Layer {...routeLineLayer} />
                 </Source>
-              ) : null}
+              : null}
 
-              {dutyDotsGeoJson?.features.length ? (
+              {dutyDotsGeoJson?.features.length ?
                 <Source id="duty-dots" type="geojson" data={dutyDotsGeoJson}>
                   <Layer
                     id={LAYER_DUTY_DOTS}
@@ -598,9 +717,9 @@ export default function RouteMapPanel({
                     }}
                   />
                 </Source>
-              ) : null}
+              : null}
 
-              {stopsGeoJson?.features.length ? (
+              {stopsGeoJson?.features.length ?
                 <Source id="route-stops" type="geojson" data={stopsGeoJson}>
                   <Layer
                     id={LAYER_STOPS}
@@ -613,9 +732,9 @@ export default function RouteMapPanel({
                     }}
                   />
                 </Source>
-              ) : null}
+              : null}
 
-              {hoverTip ? (
+              {hoverTip ?
                 <Popup
                   longitude={hoverTip.lng}
                   latitude={hoverTip.lat}
@@ -633,40 +752,84 @@ export default function RouteMapPanel({
                       pointerEvents: "none",
                     }}
                   >
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4 }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", lineHeight: 1.4 }}
+                    >
                       Type
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 800, display: "block", lineHeight: 1.35, mb: 0.5 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 800,
+                        display: "block",
+                        lineHeight: 1.35,
+                        mb: 0.5,
+                      }}
+                    >
                       {hoverTip.type}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4 }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", lineHeight: 1.4 }}
+                    >
                       Time
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 700, display: "block", lineHeight: 1.35, mb: 0.5 }}>
-                      {hoverTip.time.trim() ? hoverTip.time : "—"}
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        display: "block",
+                        lineHeight: 1.35,
+                        mb: 0.5,
+                      }}
+                    >
+                      {hoverTip.time.trim() ? hoverTip.time : "-"}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4 }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", lineHeight: 1.4 }}
+                    >
                       Location
                     </Typography>
                     <Typography
                       variant="caption"
-                      sx={{ fontWeight: 700, display: "block", lineHeight: 1.35, whiteSpace: "pre-line" }}
+                      sx={{
+                        fontWeight: 700,
+                        display: "block",
+                        lineHeight: 1.35,
+                        whiteSpace: "pre-line",
+                      }}
                     >
                       {hoverLocationLine}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4, mt: 0.5 }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", lineHeight: 1.4, mt: 0.5 }}
+                    >
                       Coordinates
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 700, display: "block", lineHeight: 1.35 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        display: "block",
+                        lineHeight: 1.35,
+                      }}
+                    >
                       {formatLatLonLine(hoverTip.lat, hoverTip.lng)}
                     </Typography>
                   </Box>
                 </Popup>
-              ) : null}
+              : null}
             </Map>
-          )}
+          }
 
-          {mapError ? (
+          {mapError ?
             <Box
               sx={(t) => ({
                 position: "absolute",
@@ -684,7 +847,7 @@ export default function RouteMapPanel({
             >
               {mapError}
             </Box>
-          ) : null}
+          : null}
         </Box>
       </Box>
     </SectionCard>
@@ -707,7 +870,11 @@ function LegendDot({ label, color }: { label: string; color: string }) {
       <Typography
         variant="caption"
         color="text.secondary"
-        sx={{ fontWeight: 700, whiteSpace: { xs: "normal", sm: "nowrap" }, lineHeight: 1.2 }}
+        sx={{
+          fontWeight: 700,
+          whiteSpace: { xs: "normal", sm: "nowrap" },
+          lineHeight: 1.2,
+        }}
       >
         {label}
       </Typography>

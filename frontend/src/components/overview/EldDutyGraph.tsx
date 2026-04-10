@@ -72,7 +72,7 @@ export default function EldDutyGraph(props: {
         }}
       >
         <text x={leftPad} y={18} fill={ink} fontSize="12" fontWeight="700">
-          Driver&apos;s Daily Log — 24 Hour Graph
+          Driver&apos;s Daily Log - 24 Hour Graph
         </text>
 
         {renderTopAxisLabels({ x0, chartW, ink })}

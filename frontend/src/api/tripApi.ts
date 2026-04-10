@@ -2,6 +2,9 @@ import axios from "axios";
 import type { TripDetails, TripSummary } from "../types/trip";
 import { env } from "../config/env";
 
+/** ORS geocode + directions can be slow; align with gunicorn ``--timeout`` (e.g. 120s on Render). */
+const TRIP_PLAN_TIMEOUT_MS = 120_000;
+
 type TripWrapper<T> = {
   id: string;
   tripNo?: number;
@@ -24,7 +27,10 @@ export async function createTripPlan(payload: TripPlanRequest): Promise<TripDeta
   const res = await axios.post(
     `${env.apiUrl}/api/trip/plan/`,
     payload,
-    env.apiKey ? { headers: { "X-API-Key": env.apiKey } } : undefined,
+    {
+      timeout: TRIP_PLAN_TIMEOUT_MS,
+      ...(env.apiKey ? { headers: { "X-API-Key": env.apiKey } } : {}),
+    },
   );
   return unwrapTrip<TripDetails>(res.data as TripWrapper<TripDetails>);
 }

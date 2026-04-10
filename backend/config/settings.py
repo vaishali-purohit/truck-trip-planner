@@ -172,7 +172,7 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": (
         "Backend API for generating truck trip plans + HOS/ELD log sheets.\n\n"
         "Notes:\n"
-        "- The trip planning endpoint calls external geocoding/routing services.\n"
+        "- The trip planning endpoint calls OpenRouteService (geocoding + directions).\n"
         "- Errors are returned in a consistent `{error, message, ...}` shape.\n"
     ),
     "VERSION": "1.0.0",
@@ -190,29 +190,44 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-if DEBUG:
-    GEOCODER_NOMINATIM_BASE_URL = os.getenv(
-        "GEOCODER_NOMINATIM_BASE_URL",
-        "https://nominatim.openstreetmap.org",
-    ).strip()
-    GEOCODER_USER_AGENT = os.getenv(
-        "GEOCODER_USER_AGENT",
-        "truck-trip-planner/1.0 (dev)",
-    ).strip()
-    ROUTER_OSRM_BASE_URL = os.getenv(
-        "ROUTER_OSRM_BASE_URL",
-        "https://router.project-osrm.org",
-    ).strip()
+_ORS_GEOCODER_DEFAULT_BASE = "https://api.openrouteservice.org"
+
+if IS_TEST:
+    GEOCODER_ORS_BASE_URL = os.getenv("GEOCODER_ORS_BASE_URL", _ORS_GEOCODER_DEFAULT_BASE).strip()
+    GEOCODER_API_KEY = (os.getenv("GEOCODER_API_KEY") or "").strip()
+elif DEBUG:
+    GEOCODER_ORS_BASE_URL = os.getenv("GEOCODER_ORS_BASE_URL", _ORS_GEOCODER_DEFAULT_BASE).strip()
+    GEOCODER_API_KEY = (os.getenv("GEOCODER_API_KEY") or "").strip()
 else:
-    GEOCODER_NOMINATIM_BASE_URL = _env_required("GEOCODER_NOMINATIM_BASE_URL")
-    GEOCODER_USER_AGENT = _env_required("GEOCODER_USER_AGENT")
-    ROUTER_OSRM_BASE_URL = _env_required("ROUTER_OSRM_BASE_URL")
+    GEOCODER_ORS_BASE_URL = _env_required("GEOCODER_ORS_BASE_URL")
+    GEOCODER_API_KEY = _env_required("GEOCODER_API_KEY")
+
+# Routing: OpenRouteService Directions v2 (same API host/key as geocoder by default).
+ROUTER_ORS_BASE_URL = os.getenv(
+    "ROUTER_ORS_BASE_URL",
+    GEOCODER_ORS_BASE_URL,
+).strip()
+ROUTER_ORS_PROFILE = os.getenv("ROUTER_ORS_PROFILE", "driving-hgv").strip()
+ROUTER_ORS_API_KEY = _env_optional("ROUTER_ORS_API_KEY")
+# Snap geocode points to the road: meters per waypoint, or -1 = no limit (ORS default ~350m often fails).
+try:
+    ROUTER_ORS_SNAP_RADIUS_METERS = int(
+        (os.getenv("ROUTER_ORS_SNAP_RADIUS_METERS", "-1") or "-1").strip()
+    )
+except ValueError:
+    ROUTER_ORS_SNAP_RADIUS_METERS = -1
 
 LOCATION_SEARCH_TIMEOUT_SECONDS = float(os.getenv("LOCATION_SEARCH_TIMEOUT_SECONDS", "8"))
 
-# Routing (OSRM)
-# The public OSRM demo can be slow / rate-limited; allow tuning the route timeout via env.
-ROUTE_TIMEOUT_SECONDS = float(os.getenv("ROUTE_TIMEOUT_SECONDS", "45"))
+# Throttle outbound geocoder HTTP calls (per worker). OpenRouteService has daily quotas; tune as needed.
+GEOCODER_MIN_INTERVAL_SECONDS = float(os.getenv("GEOCODER_MIN_INTERVAL_SECONDS", "0.5"))
+# Optional User-Agent on geocoder requests (ORS uses the API key for auth).
+GEOCODER_HTTP_USER_AGENT = os.getenv("GEOCODER_HTTP_USER_AGENT", "truck-trip-planner/1.0").strip()
+# ISO 3166-1 alpha-2 codes, comma-separated (e.g. "us"). First code is sent as Pelias boundary.country.
+GEOCODER_COUNTRY_CODES = os.getenv("GEOCODER_COUNTRY_CODES", "us").strip()
+
+# ORS Directions HTTP timeout (seconds).
+ROUTE_TIMEOUT_SECONDS = float(os.getenv("ROUTE_TIMEOUT_SECONDS", "60"))
 
 # Optional: if set, require clients to send X-API-Key for all API calls.
 API_KEY = _env_optional("API_KEY")

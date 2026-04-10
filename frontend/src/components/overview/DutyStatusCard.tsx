@@ -13,7 +13,7 @@ function InfoCell({ label, value }: { label: string; value: string }) {
 
 export interface DutyStatusCardProps {
   dutyCardRef?: (el: HTMLDivElement | null) => void;
-  /** Day / Full Journey tabs — rendered at top of Daily Log card */
+  /** Day / Full Journey tabs - rendered at top of Daily Log card */
   tabs: ReactNode;
   /** When false, only tabs + short message (Full Journey or no sheet). */
   showDayLog: boolean;
@@ -50,11 +50,14 @@ export default function DutyStatusCard({
   segments,
 }: DutyStatusCardProps) {
   const [metaOpen, setMetaOpen] = useState(true);
-  const dateStr = new Date(dateISO + "T12:00:00").toLocaleDateString(undefined, {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const dateStr = new Date(dateISO + "T12:00:00").toLocaleDateString(
+    undefined,
+    {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    },
+  );
 
   return (
     <SectionCard
@@ -68,17 +71,25 @@ export default function DutyStatusCard({
       <Stack spacing={1.5} sx={{ minHeight: 0, width: "100%" }}>
         <Box sx={{ width: "100%", minWidth: 0 }}>{tabs}</Box>
 
-        {!showDayLog ? (
+        {!showDayLog ?
           <Stack spacing={0.75}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontWeight: 700 }}
+            >
               {fullJourneyLine}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-              Select a day tab for this trip&apos;s 24-hour graph, header details, and matching remarks.
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontWeight: 600 }}
+            >
+              Select a day tab for this trip&apos;s 24-hour graph, header
+              details, and matching remarks.
             </Typography>
           </Stack>
-        ) : (
-          <>
+        : <>
             <Box
               sx={{
                 display: "flex",
@@ -113,18 +124,19 @@ export default function DutyStatusCard({
                 }}
               >
                 {metaOpen ? "Collapse Log Sheet" : "Expand Log Sheet"}
-                {metaOpen ? (
+                {metaOpen ?
                   <ExpandLessIcon sx={{ fontSize: 18 }} />
-                ) : (
-                  <ExpandMoreIcon sx={{ fontSize: 18 }} />
-                )}
+                : <ExpandMoreIcon sx={{ fontSize: 18 }} />}
               </Link>
             </Box>
 
             <Collapse
               in={metaOpen}
               timeout={0}
-              sx={{ width: "100%", "& .MuiCollapse-wrapperInner": { width: "100%" } }}
+              sx={{
+                width: "100%",
+                "& .MuiCollapse-wrapperInner": { width: "100%" },
+              }}
             >
               <Stack spacing={2} sx={{ width: "100%" }}>
                 <Divider />
@@ -138,18 +150,27 @@ export default function DutyStatusCard({
                 >
                   <Stack spacing={1.25}>
                     <InfoCell label="Date" value={dateStr} />
-                    <InfoCell label="Carrier" value={carrierName || "—"} />
+                    <InfoCell label="Carrier" value={carrierName || "-"} />
                     <InfoCell label="From" value={fromLocation} />
                   </Stack>
                   <Stack spacing={1.25}>
-                    <InfoCell label="Total Miles Driving Today" value={totalMilesToday.toFixed(1)} />
-                    <InfoCell label="Main Office" value={mainOfficeAddress || "—"} />
+                    <InfoCell
+                      label="Total Miles Driving Today"
+                      value={totalMilesToday.toFixed(1)}
+                    />
+                    <InfoCell
+                      label="Main Office"
+                      value={mainOfficeAddress || "-"}
+                    />
                     <InfoCell label="To" value={toLocation} />
                   </Stack>
                   <Stack spacing={1.25}>
-                    <InfoCell label="Truck No" value={truckId || "—"} />
-                    <InfoCell label="Trailer No" value={trailerId?.trim() ? trailerId : "—"} />
-                    <InfoCell label="Driver" value={driverName || "—"} />
+                    <InfoCell label="Truck No" value={truckId || "-"} />
+                    <InfoCell
+                      label="Trailer No"
+                      value={trailerId?.trim() ? trailerId : "-"}
+                    />
+                    <InfoCell label="Driver" value={driverName || "-"} />
                   </Stack>
                 </Box>
               </Stack>
@@ -161,7 +182,7 @@ export default function DutyStatusCard({
               <EldDutyGraph dutyTotals={dutyTotals} segments={segments} />
             </Box>
           </>
-        )}
+        }
       </Stack>
     </SectionCard>
   );

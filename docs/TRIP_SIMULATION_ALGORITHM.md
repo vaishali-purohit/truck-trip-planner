@@ -1,4 +1,4 @@
-# Trip Simulation Algorithm — Step-by-Step
+# Trip Simulation Algorithm - Step-by-Step
 
 This describes the current trip planning algorithm implemented in `backend/trips/planner.py`, in the order it runs.
 
@@ -12,6 +12,7 @@ This describes the current trip planning algorithm implemented in `backend/trips
 - `cycleHoursUsed` (float, 0..70)
 
 Note:
+
 - `currentLocation` is persisted and echoed in `inputs`, but the planner’s route is currently computed **pickup → dropoff**.
 
 ## Outputs (high-level)
@@ -36,35 +37,30 @@ Function: `parse_city_state(...)`
 
 The parsed `pickup`/`dropoff` is what the UI displays (not the raw location string).
 
-### 2) Geocode pickup and dropoff into coordinates
+### 2) Geocode current, pickup, and dropoff into coordinates
 
-Function: `geocode_us_location(query)`
+Function: `LocationService.geocode(query)` (`backend/trips/services/location_service.py`)
 
-- Calls a Nominatim-compatible endpoint configured via:
-  - `GEOCODE_URL`
-  - `GEOCODE_UA` (User-Agent)
-- Uses a small query strategy:
-  - tries `"<query>, USA"` then `"<query>"`
-  - may try a shortened comma-truncated query
-- Caches up to 1024 results in-process via `lru_cache`.
+- Calls OpenRouteService [`GET /geocode/autocomplete`](https://openrouteservice.org/dev/#/api-docs/geocode) with `size=1` (planner “resolve”; Basic ORS keys include this micro-endpoint), using:
+  - `GEOCODER_ORS_BASE_URL` (e.g. `https://api.openrouteservice.org`)
+  - `GEOCODER_API_KEY` (query `api_key` and/or `Authorization` header, per ORS)
+  - optional Pelias `boundary.country` from the first value in `GEOCODER_COUNTRY_CODES`
+- Caches responses in-process via `lru_cache` on `(base URL, path, country, query, limit)`.
 
-Output: `LngLat(lng, lat)` for pickup and dropoff.
+Output: WGS84 `lat` / `lng` plus optional `display_name` (from Pelias `properties.label`) for each resolved location.
 
-### 3) Route pickup → dropoff via OSRM
+### 3) Route pickup → dropoff via OpenRouteService Directions
 
-Function: `osrm_route(a, b)`
+Function: `RouteService.get_route(a, b)`
 
-- Calls OSRM with:
-  - `OSRM_URL`
-  - `route/v1/driving/<a>;<b>?overview=full&geometries=geojson&steps=true`
-- Reads:
-  - `route.distance` (meters)
-  - `route.duration` (seconds)
-  - `route.geometry.coordinates` (GeoJSON coordinates `[lng, lat]`)
-  - optional step info for turn-by-turn
+- Calls ORS **`POST /v2/directions/{profile}/json`** (default profile `driving-hgv`; override `ROUTER_ORS_PROFILE`) with body `coordinates: [[lng,lat],[lng,lat]]`, `instructions: true`. Geometry is an encoded polyline, decoded to `[lng,lat]` points.
+- Auth: `Authorization` + same key as geocoder unless `ROUTER_ORS_API_KEY` is set; base URL `ROUTER_ORS_BASE_URL` (defaults to `GEOCODER_ORS_BASE_URL`).
+- Normalizes `routes[0]` into the same internal shape the planner expects (meters, seconds, `geometry.coordinates`, `legs[].steps` for `build_turn_by_turn`).
 
 Notes:
-- There is a `straight_line_route(...)` helper for offline fallback, but it is not currently used by `build_trip_plan`.
+
+- The public API may return **406** for the `/geojson` path (unsupported format); this app uses `/json` instead.
+- **ORS 2010** (“no routable point within 350 m”): the directions request sends **`radiuses`** (default **-1** = unlimited snap per waypoint via `ROUTER_ORS_SNAP_RADIUS_METERS`). If it still fails, try **`ROUTER_ORS_PROFILE=driving-car`** (the HGV graph may omit some rural links).
 
 ### 4) Compute distance + duration in UI units
 
@@ -95,6 +91,7 @@ Outputs `stopPlan`:
 - `stopCount` (= `fuelStops + breakStops`)
 
 Important:
+
 - Fuel stops affect counts only right now; they do not yet create explicit schedule segments or alter the route.
 
 ### 6) Estimate total trip time
@@ -143,7 +140,7 @@ Output:
 
 Function: `build_turn_by_turn(route)`
 
-- Iterates OSRM legs/steps.
+- Iterates normalized `legs` / `steps` (from ORS segments).
 - Emits array items with:
   - `instruction`
   - `distance_mi`
@@ -167,4 +164,3 @@ Function: `build_turn_by_turn(route)`
 - Only a coarse cycle-hours warning is computed (not full rolling 70h/8d accounting).
 - Fuel stops are counts only; no schedule segments or geospatial stop placement yet.
 - Sleeper berth and split sleeper rules are not implemented.
-

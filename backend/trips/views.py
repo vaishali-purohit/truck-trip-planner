@@ -115,6 +115,7 @@ def _normalize_trip_result(result: object, trip_no: int | None) -> object:
                     "estimatedArrivalISO": "2026-04-11T06:00:00-04:00",
                     "stopsCount": 2,
                     "route": {
+                        "currentLngLat": [-87.6298, 41.8781],
                         "pickupLngLat": [-87.6298, 41.8781],
                         "dropoffLngLat": [-104.9903, 39.7392],
                         "line": {"type": "LineString", "coordinates": []},
@@ -302,11 +303,16 @@ class LocationSearchView(APIView):
 
         try:
             items = LocationService.search(q, limit)
+        except ValueError as e:
+            return Response(
+                {"error": "invalid_input_or_no_result", "message": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except requests.RequestException as e:
             return Response(
                 {
                     "error": "upstream_unavailable",
-                    "message": "Location service unavailable",
+                    "message": "OpenRouteService geocoder unavailable",
                     "detail": str(e),
                 },
                 status=status.HTTP_502_BAD_GATEWAY,
@@ -315,11 +321,11 @@ class LocationSearchView(APIView):
         return Response(
             [
                 {
-                    "label": it.get("display_name"),
+                    "label": label,
                     "lat": it.get("lat"),
                     "lon": it.get("lon"),
                 }
                 for it in items
-                if it.get("display_name")
+                if (label := (it.get("display_name") or it.get("name") or "").strip())
             ]
         )

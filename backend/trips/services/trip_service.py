@@ -63,18 +63,16 @@ class TripService:
 
         for attempt in range(cls.MAX_RETRIES):
             try:
+                plan = build_trip_plan(
+                    current_location=data["currentLocation"],
+                    pickup_location=data["pickupLocation"],
+                    dropoff_location=data["dropoffLocation"],
+                    cycle_hours_used=cycle_hours,
+                )
+
                 with transaction.atomic():
                     trip_no = cls._generate_trip_no()
 
-                    plan = build_trip_plan(
-                        current_location=data["currentLocation"],
-                        pickup_location=data["pickupLocation"],
-                        dropoff_location=data["dropoffLocation"],
-                        cycle_hours_used=cycle_hours,
-                    )
-
-                    # Persist the original request inputs so the UI can repopulate
-                    # fields when viewing an existing trip (after navigation / reload).
                     if isinstance(plan, dict):
                         plan.setdefault(
                             "inputs",
@@ -86,7 +84,6 @@ class TripService:
                             },
                         )
 
-                        # Provide stable defaults for Daily Log header fields when not configured.
                         def _blank(v: object) -> bool:
                             return v is None or (isinstance(v, str) and not v.strip())
 
@@ -111,7 +108,6 @@ class TripService:
                                 cls._default_str("DEFAULT_TRAILER_ID") or cls._auto_trailer_id(trip_no)
                             )
 
-                        # driverLogs: pending if we don't have usable segments yet (older trips)
                         if _blank(plan.get("driverLogs")):
                             sheets = plan.get("eldLogSheets")
                             has_segments = False
@@ -122,7 +118,7 @@ class TripService:
                                         break
                             plan["driverLogs"] = "completed" if has_segments else "pending"
 
-                    return TripPlan.objects.create(
+                    obj = TripPlan.objects.create(
                         trip_no=trip_no,
                         current_location=data["currentLocation"],
                         pickup_location=data["pickupLocation"],
@@ -130,6 +126,7 @@ class TripService:
                         cycle_hours_used=cycle_hours,
                         result=plan,
                     )
+                    return obj
 
             except IntegrityError:
                 if attempt == cls.MAX_RETRIES - 1:

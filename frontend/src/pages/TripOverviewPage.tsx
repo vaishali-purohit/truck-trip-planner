@@ -27,7 +27,10 @@ import {
   formatFullJourneyLine,
   formatLocationAlongFractionRangeWindow,
 } from "../utils/tripRoutePlace";
-import { globalRouteFractionForClockHour, pointAtGlobalRouteFraction } from "../utils/routeDutyGeometry";
+import {
+  globalRouteFractionForClockHour,
+  pointAtGlobalRouteFraction,
+} from "../utils/routeDutyGeometry";
 import { parseTripNoParam, tripOverviewPath } from "../utils/tripRoutes";
 
 export default function TripOverviewPage() {
@@ -39,7 +42,10 @@ export default function TripOverviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const routeTripNo = useMemo(() => parseTripNoParam(tripNoParam), [tripNoParam]);
+  const routeTripNo = useMemo(
+    () => parseTripNoParam(tripNoParam),
+    [tripNoParam],
+  );
   const invalidTripNoInUrl =
     tripNoParam != null && tripNoParam !== "" && routeTripNo == null;
 
@@ -153,20 +159,12 @@ export default function TripOverviewPage() {
       currentLocation.trim() !== "" &&
       pickupLocation.trim() !== "" &&
       dropoffLocation.trim() !== "";
-    const cycleInRange =
-      cycleHoursUsed >= 0 && cycleHoursUsed <= 70;
+    const cycleInRange = cycleHoursUsed >= 0 && cycleHoursUsed <= 70;
     return locationsFilled && cycleInRange;
-  }, [
-    currentLocation,
-    cycleHoursUsed,
-    dropoffLocation,
-    pickupLocation,
-  ]);
+  }, [currentLocation, cycleHoursUsed, dropoffLocation, pickupLocation]);
 
   const isDraft =
-    trip == null &&
-    (tripNoParam == null || tripNoParam === "") &&
-    !fetchError;
+    trip == null && (tripNoParam == null || tripNoParam === "") && !fetchError;
   const dutyCardRef = useRef<HTMLDivElement | null>(null);
   const [dutyCardHeight, setDutyCardHeight] = useState<number | null>(null);
 
@@ -196,24 +194,31 @@ export default function TripOverviewPage() {
     trip != null ? (trip.totalLogDays ?? Math.max(1, logSheets.length)) : 0;
   const effectiveLogTab: "full" | number = isSingleDayTrip ? 0 : logTab;
   const activeDayIndex =
-    effectiveLogTab === "full" || logSheets.length === 0
-      ? null
-      : Math.min(Math.max(0, effectiveLogTab), logSheets.length - 1);
+    effectiveLogTab === "full" || logSheets.length === 0 ?
+      null
+    : Math.min(Math.max(0, effectiveLogTab), logSheets.length - 1);
   const selectedDaySheet =
-    activeDayIndex === null ? null : logSheets[activeDayIndex] ?? null;
+    activeDayIndex === null ? null : (logSheets[activeDayIndex] ?? null);
 
   const mapDutyTotals = selectedDaySheet?.dutyTotals ?? displayTrip.dutyTotals;
   const mapLogDateISO = selectedDaySheet?.dateISO ?? displayTrip.dateISO;
 
   const dayRouteProgress = useMemo(() => {
-    if (!selectedDaySheet || activeDayIndex === null || !logSheets.length) return null;
+    if (!selectedDaySheet || activeDayIndex === null || !logSheets.length)
+      return null;
     return dayRouteFractionRange(
       activeDayIndex,
       logSheets,
       displayTrip.totalDistanceMi,
       displayTrip.drivingHours,
     );
-  }, [activeDayIndex, displayTrip.drivingHours, displayTrip.totalDistanceMi, logSheets, selectedDaySheet]);
+  }, [
+    activeDayIndex,
+    displayTrip.drivingHours,
+    displayTrip.totalDistanceMi,
+    logSheets,
+    selectedDaySheet,
+  ]);
 
   const fallbackLoc = `${formatStop(displayTrip.pickup)} → ${formatStop(displayTrip.dropoff)}`;
 
@@ -223,9 +228,10 @@ export default function TripOverviewPage() {
         from: formatStop(displayTrip.pickup),
         to: formatStop(displayTrip.dropoff),
         miles:
-          selectedDaySheet != null
-            ? (Number(selectedDaySheet.totalMilesDrivingToday) || displayTrip.totalMilesToday)
-            : displayTrip.totalMilesToday,
+          selectedDaySheet != null ?
+            Number(selectedDaySheet.totalMilesDrivingToday) ||
+            displayTrip.totalMilesToday
+          : displayTrip.totalMilesToday,
       };
     }
     const e = eldSheetFromToLabels(
@@ -252,52 +258,84 @@ export default function TripOverviewPage() {
   const routeLineCoords = displayTrip.route?.line?.coordinates;
   const dayGeocodePoints = useMemo(() => {
     if (!routeLineCoords || routeLineCoords.length < 2) return null;
-    if (activeDayIndex === null || !selectedDaySheet || !logSheets.length || !dayRouteProgress) return null;
+    if (
+      activeDayIndex === null ||
+      !selectedDaySheet ||
+      !logSheets.length ||
+      !dayRouteProgress
+    )
+      return null;
     const pts: { id: string; lng: number; lat: number }[] = [];
-    const [lngS, latS] = pointAtGlobalRouteFraction(routeLineCoords, dayRouteProgress.start);
-    const [lngE, latE] = pointAtGlobalRouteFraction(routeLineCoords, dayRouteProgress.end);
-    pts.push({ id: "dayFrom", lng: lngS, lat: latS }, { id: "dayTo", lng: lngE, lat: latE });
-    const segments = selectedDaySheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
+    const [lngS, latS] = pointAtGlobalRouteFraction(
+      routeLineCoords,
+      dayRouteProgress.start,
+    );
+    const [lngE, latE] = pointAtGlobalRouteFraction(
+      routeLineCoords,
+      dayRouteProgress.end,
+    );
+    pts.push(
+      { id: "dayFrom", lng: lngS, lat: latS },
+      { id: "dayTo", lng: lngE, lat: latE },
+    );
+    const segments =
+      selectedDaySheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
     const allSegs = selectedDaySheet.segments ?? [];
     segments.forEach((s, i) => {
       const midHour = (s.fromHour + s.toHour) / 2;
-      const fr = globalRouteFractionForClockHour(allSegs, midHour, dayRouteProgress);
+      const fr = globalRouteFractionForClockHour(
+        allSegs,
+        midHour,
+        dayRouteProgress,
+      );
       const [lng, lat] = pointAtGlobalRouteFraction(routeLineCoords, fr);
       pts.push({ id: `seg-${i}`, lng, lat });
     });
     return pts;
-  }, [activeDayIndex, dayRouteProgress, logSheets.length, routeLineCoords, selectedDaySheet]);
+  }, [
+    activeDayIndex,
+    dayRouteProgress,
+    logSheets.length,
+    routeLineCoords,
+    selectedDaySheet,
+  ]);
 
-  const { labels: routePinPlaceNames } = useReverseGeocodeLabeledPoints(env.mapboxToken, dayGeocodePoints);
+  const { labels: routePinPlaceNames } = useReverseGeocodeLabeledPoints(
+    env.mapboxToken,
+    dayGeocodePoints,
+  );
 
   const dayMilesDriving = dayRouteEndpoints.miles;
   const dayFromLocation =
-    routePinPlaceNames.dayFrom?.trim() ? routePinPlaceNames.dayFrom.trim() : dayRouteEndpoints.from;
+    routePinPlaceNames.dayFrom?.trim() ?
+      routePinPlaceNames.dayFrom.trim()
+    : dayRouteEndpoints.from;
   const dayToLocation =
-    routePinPlaceNames.dayTo?.trim() ? routePinPlaceNames.dayTo.trim() : dayRouteEndpoints.to;
+    routePinPlaceNames.dayTo?.trim() ?
+      routePinPlaceNames.dayTo.trim()
+    : dayRouteEndpoints.to;
   const dayDateISO = selectedDaySheet?.dateISO ?? displayTrip.dateISO;
 
   const remarkEntries = useMemo(() => {
     if (effectiveLogTab === "full" || selectedDaySheet == null) return [];
-    const segments = selectedDaySheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
+    const segments =
+      selectedDaySheet.segments?.filter((s) => s.toHour > s.fromHour) ?? [];
     return segments.map((s, i) => {
       const midHour = (s.fromHour + s.toHour) / 2;
       const segs = selectedDaySheet.segments ?? [];
       const pinName = routePinPlaceNames[`seg-${i}`]?.trim() ?? "";
       const apiLoc = typeof s.location === "string" ? s.location.trim() : "";
       const routeLoc =
-        pinName
-          ? pinName
-          : apiLoc
-            ? apiLoc
-            : dayRouteProgress && segs.length
-              ? formatLocationAlongFractionRangeWindow(
-                  globalRouteFractionForClockHour(segs, midHour, dayRouteProgress),
-                  dayRouteProgress,
-                  dayFromLocation,
-                  dayToLocation,
-                )
-              : fallbackLoc;
+        pinName ? pinName
+        : apiLoc ? apiLoc
+        : dayRouteProgress && segs.length ?
+          formatLocationAlongFractionRangeWindow(
+            globalRouteFractionForClockHour(segs, midHour, dayRouteProgress),
+            dayRouteProgress,
+            dayFromLocation,
+            dayToLocation,
+          )
+        : fallbackLoc;
       return {
         time: formatClockShort(s.fromHour),
         status: s.status,
@@ -316,18 +354,22 @@ export default function TripOverviewPage() {
   ]);
 
   const normalizedDayNumber = (raw: number | undefined, fallback: number) => {
-    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 1) return fallback;
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 1)
+      return fallback;
     return raw;
   };
 
-  const dailyTotalsForSidebar = selectedDaySheet?.dutyTotals ?? displayTrip.dutyTotals;
+  const dailyTotalsForSidebar =
+    selectedDaySheet?.dutyTotals ?? displayTrip.dutyTotals;
   const sidebarLogDayNumber =
-    selectedDaySheet != null && activeDayIndex != null
-      ? normalizedDayNumber(selectedDaySheet.dayIndex, activeDayIndex + 1)
-      : 1;
+    selectedDaySheet != null && activeDayIndex != null ?
+      normalizedDayNumber(selectedDaySheet.dayIndex, activeDayIndex + 1)
+    : 1;
 
   const tabValue =
-    effectiveLogTab === "full" || logSheets.length === 0 ? "full" : String(activeDayIndex ?? 0);
+    effectiveLogTab === "full" || logSheets.length === 0 ?
+      "full"
+    : String(activeDayIndex ?? 0);
 
   const stopPlan = displayTrip.stopPlan;
   const fuelStops = stopPlan?.fuelStops ?? 0;
@@ -339,6 +381,13 @@ export default function TripOverviewPage() {
   const showDayDetail = selectedDaySheet != null;
 
   const getPlanErrorMessage = (e: unknown): string => {
+    const ax = e as { code?: string; message?: string } | null;
+    if (ax?.code === "ECONNABORTED") {
+      return "Request timed out - the server may still be geocoding or routing. Wait a moment, then check Trip History or try again.";
+    }
+    if (ax?.code === "ERR_NETWORK" || ax?.message === "Network Error") {
+      return "Network error - could not reach the API. Check VITE_API_URL, CORS, and that the backend is running.";
+    }
     const err = e as { response?: { data?: unknown } } | null;
     const data = err?.response?.data;
     if (data && typeof data === "object") {
@@ -349,7 +398,8 @@ export default function TripOverviewPage() {
       const parts: string[] = [];
       for (const [k, v] of Object.entries(record)) {
         if (k === "error") continue;
-        if (Array.isArray(v)) parts.push(`${k}: ${v.map((x) => String(x)).join(", ")}`);
+        if (Array.isArray(v))
+          parts.push(`${k}: ${v.map((x) => String(x)).join(", ")}`);
         else if (typeof v === "string") parts.push(`${k}: ${v}`);
       }
       if (parts.length) return parts.join(" · ");
@@ -369,7 +419,8 @@ export default function TripOverviewPage() {
     return (
       <Typography variant="body2" color="text.secondary">
         Invalid trip number in the URL. Use a number such as{" "}
-        <strong>{tripOverviewPath(1900)}</strong>, or open Trip History to pick a trip.
+        <strong>{tripOverviewPath(1900)}</strong>, or open Trip History to pick
+        a trip.
       </Typography>
     );
   }
@@ -388,15 +439,15 @@ export default function TripOverviewPage() {
       sx={{
         maxWidth: "100%",
         minWidth: 0,
-        ...(isDraft
-          ? {
-              height: {
-                xs: "calc(100dvh - 56px - 40px)",
-                sm: "calc(100dvh - 64px - 56px)",
-              },
-              minHeight: 0,
-            }
-          : {}),
+        ...(isDraft ?
+          {
+            height: {
+              xs: "calc(100dvh - 56px - 40px)",
+              sm: "calc(100dvh - 64px - 56px)",
+            },
+            minHeight: 0,
+          }
+        : {}),
       }}
     >
       <PageHeader
@@ -410,7 +461,13 @@ export default function TripOverviewPage() {
             Generated on{" "}
             {new Date(displayTrip.dateISO + "T00:00:00").toLocaleDateString()} •
             Trip No.:{" "}
-            <strong>{isDraft ? "—" : (displayTrip.tripNo != null ? String(displayTrip.tripNo) : "—")}</strong>
+            <strong>
+              {isDraft ?
+                "-"
+              : displayTrip.tripNo != null ?
+                String(displayTrip.tripNo)
+              : "-"}
+            </strong>
           </>
         }
         actions={
@@ -473,6 +530,10 @@ export default function TripOverviewPage() {
                 });
                 if (created.tripNo != null) {
                   navigate(tripOverviewPath(created.tripNo));
+                } else {
+                  setSubmitError(
+                    "Trip was created but the response did not include a trip number. Open Trip History to find it.",
+                  );
                 }
               } catch (e: unknown) {
                 setSubmitError(getPlanErrorMessage(e));
@@ -483,7 +544,7 @@ export default function TripOverviewPage() {
           />
         </Stack>
 
-        {isDraft ? (
+        {isDraft ?
           <Box
             sx={{
               flex: 1,
@@ -500,15 +561,16 @@ export default function TripOverviewPage() {
               dateISO={mapLogDateISO}
               pickup={displayTrip.pickup}
               dropoff={displayTrip.dropoff}
-              routeProgress={selectedDaySheet ? (dayRouteProgress ?? undefined) : undefined}
+              routeProgress={
+                selectedDaySheet ? (dayRouteProgress ?? undefined) : undefined
+              }
               eldSegments={selectedDaySheet?.segments}
               dayRouteMode={Boolean(selectedDaySheet && dayRouteProgress)}
               dayStartLabel={dayRouteEndpoints.from}
               dayEndLabel={dayRouteEndpoints.to}
             />
           </Box>
-        ) : (
-          <Box
+        : <Box
             sx={{
               flex: 1,
               minWidth: 0,
@@ -517,8 +579,9 @@ export default function TripOverviewPage() {
               gap: 2,
               gridTemplateColumns: { xs: "1fr", lg: "1fr minmax(0, 320px)" },
               gridTemplateRows: { xs: "auto", lg: "minmax(520px, auto) auto" },
-              gridTemplateAreas: showDayDetail
-                ? {
+              gridTemplateAreas:
+                showDayDetail ?
+                  {
                     xs: `"map" "rightTop" "duty" "remarks"`,
                     lg: `"map rightTop" "duty remarks"`,
                   }
@@ -536,7 +599,9 @@ export default function TripOverviewPage() {
                 dateISO={mapLogDateISO}
                 pickup={displayTrip.pickup}
                 dropoff={displayTrip.dropoff}
-                routeProgress={selectedDaySheet ? (dayRouteProgress ?? undefined) : undefined}
+                routeProgress={
+                  selectedDaySheet ? (dayRouteProgress ?? undefined) : undefined
+                }
                 eldSegments={selectedDaySheet?.segments}
                 dayRouteMode={Boolean(selectedDaySheet && dayRouteProgress)}
                 dayStartLabel={dayRouteEndpoints.from}
@@ -563,14 +628,16 @@ export default function TripOverviewPage() {
                 breakStops={breakStops}
                 fuelStops={fuelStops}
                 totalStopsAll={totalStopsAll}
-                estimatedArrivalText={formatDateTimeEastern(displayTrip.estimatedArrivalISO)}
+                estimatedArrivalText={formatDateTimeEastern(
+                  displayTrip.estimatedArrivalISO,
+                )}
               />
-              {showDayDetail ? (
+              {showDayDetail ?
                 <DailyStatusTotalsCard
                   dutyTotals={dailyTotalsForSidebar}
                   dayNumber={sidebarLogDayNumber}
                 />
-              ) : null}
+              : null}
             </Stack>
 
             <Box sx={{ gridArea: "duty", minWidth: 0, maxWidth: "100%" }}>
@@ -581,7 +648,14 @@ export default function TripOverviewPage() {
                 showDayLog={selectedDaySheet != null}
                 tabs={
                   isSingleDayTrip ? null : (
-                    <Box sx={{ borderBottom: 1, borderColor: "divider", pb: 0, mb: 0 }}>
+                    <Box
+                      sx={{
+                        borderBottom: 1,
+                        borderColor: "divider",
+                        pb: 0,
+                        mb: 0,
+                      }}
+                    >
                       <Tabs
                         value={tabValue}
                         onChange={(_, v) => {
@@ -596,7 +670,11 @@ export default function TripOverviewPage() {
                           minWidth: 0,
                           minHeight: 44,
                           "& .MuiTabs-scroller": { maxWidth: "100%" },
-                          "& .MuiTab-root": { minHeight: 44, textTransform: "none", fontWeight: 700 },
+                          "& .MuiTab-root": {
+                            minHeight: 44,
+                            textTransform: "none",
+                            fontWeight: 700,
+                          },
                         }}
                       >
                         <Tab label="Full Journey" value="full" />
@@ -616,23 +694,32 @@ export default function TripOverviewPage() {
                 totalMilesToday={dayMilesDriving}
                 fromLocation={dayFromLocation}
                 toLocation={dayToLocation}
-                truckId={displayTrip.truckId?.trim() ? displayTrip.truckId : String(displayTrip.tripNo ?? "")}
+                truckId={
+                  displayTrip.truckId?.trim() ?
+                    displayTrip.truckId
+                  : String(displayTrip.tripNo ?? "")
+                }
                 trailerId={displayTrip.trailerId}
                 driverName={displayTrip.driverName}
                 carrierName={displayTrip.carrierName}
                 mainOfficeAddress={displayTrip.mainOfficeAddress}
-                dutyTotals={selectedDaySheet?.dutyTotals ?? displayTrip.dutyTotals}
+                dutyTotals={
+                  selectedDaySheet?.dutyTotals ?? displayTrip.dutyTotals
+                }
                 segments={selectedDaySheet?.segments}
               />
             </Box>
 
-            {showDayDetail ? (
+            {showDayDetail ?
               <Box sx={{ gridArea: "remarks", minWidth: 0, maxWidth: "100%" }}>
-                <RemarksCard entries={remarkEntries} maxHeight={dutyCardHeight ?? 520} />
+                <RemarksCard
+                  entries={remarkEntries}
+                  maxHeight={dutyCardHeight ?? 520}
+                />
               </Box>
-            ) : null}
+            : null}
           </Box>
-        )}
+        }
       </Stack>
     </Stack>
   );

@@ -1,5 +1,9 @@
 import type { TripDetails } from "../types/trip";
-import { formatDateOnly, formatDateTimeEastern, formatStop } from "./tripFormat";
+import {
+  formatDateOnly,
+  formatDateTimeEastern,
+  formatStop,
+} from "./tripFormat";
 
 type RemarkEntry = {
   time: string;
@@ -16,11 +20,26 @@ function buildRemarks(trip: TripDetails): RemarkEntry[] {
   const p = formatStop(trip.pickup);
   const d = formatStop(trip.dropoff);
   return [
-    { time: "18:20", status: "On Duty", location: p, description: "Pre-trip inspection" },
+    {
+      time: "18:20",
+      status: "On Duty",
+      location: p,
+      description: "Pre-trip inspection",
+    },
     { time: "18:35", status: "Driving", location: p, description: "Driving" },
-    { time: "22:00", status: "Off Duty", location: d, description: "30 minute break" },
+    {
+      time: "22:00",
+      status: "Off Duty",
+      location: d,
+      description: "30 minute break",
+    },
     { time: "22:30", status: "Driving", location: d, description: "Driving" },
-    { time: "23:39", status: "On Duty", location: d, description: "Pickup — Loading cargo" },
+    {
+      time: "23:39",
+      status: "On Duty",
+      location: d,
+      description: "Pickup - Loading cargo",
+    },
   ];
 }
 
@@ -34,14 +53,19 @@ function buildScheduleFromTotals(t: TripDetails["dutyTotals"]) {
     { statusKey: "onDuty", hours: t.onDutyHours },
   ];
 
-  const segments: Array<{ statusKey: DutyKey; fromHour: number; toHour: number }> = [];
+  const segments: Array<{
+    statusKey: DutyKey;
+    fromHour: number;
+    toHour: number;
+  }> = [];
   let h = 0;
   for (const item of order) {
     const hours = Number.isFinite(item.hours) ? Math.max(0, item.hours) : 0;
     if (hours <= 0) continue;
     const fromHour = h;
     const toHour = Math.min(24, h + hours);
-    if (toHour > fromHour) segments.push({ statusKey: item.statusKey, fromHour, toHour });
+    if (toHour > fromHour)
+      segments.push({ statusKey: item.statusKey, fromHour, toHour });
     h = toHour;
     if (h >= 24) break;
   }
@@ -50,7 +74,11 @@ function buildScheduleFromTotals(t: TripDetails["dutyTotals"]) {
   const merged: typeof segments = [];
   for (const s of segments) {
     const last = merged[merged.length - 1];
-    if (last && last.statusKey === s.statusKey && Math.abs(last.toHour - s.fromHour) < 1e-6) {
+    if (
+      last &&
+      last.statusKey === s.statusKey &&
+      Math.abs(last.toHour - s.fromHour) < 1e-6
+    ) {
       last.toHour = s.toHour;
     } else {
       merged.push({ ...s });
@@ -103,14 +131,20 @@ function drawEldDutyGraph(opts: {
   // Header
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("Driver's Daily Log — 24 Hour Graph", x, y + 12);
+  doc.text("Driver's Daily Log - 24 Hour Graph", x, y + 12);
 
   // Top axis labels: Mid. 1..11 Noon 1..11 Mid.
   const labels: Array<{ at: number; text: string }> = [
     { at: 0, text: "Mid." },
-    ...Array.from({ length: 11 }, (_, i) => ({ at: i + 1, text: String(i + 1) })),
+    ...Array.from({ length: 11 }, (_, i) => ({
+      at: i + 1,
+      text: String(i + 1),
+    })),
     { at: 12, text: "Noon" },
-    ...Array.from({ length: 11 }, (_, i) => ({ at: 12 + (i + 1), text: String(i + 1) })),
+    ...Array.from({ length: 11 }, (_, i) => ({
+      at: 12 + (i + 1),
+      text: String(i + 1),
+    })),
     { at: 24, text: "Mid." },
   ];
   doc.setFont("helvetica", "normal");
@@ -212,7 +246,7 @@ export async function exportTripPdf(trip: TripDetails) {
   let y = margin;
 
   const tripNoLabel = trip.tripNo != null ? String(trip.tripNo) : "unknown";
-  const title = `Trip Export — ${tripNoLabel}`;
+  const title = `Trip Export - ${tripNoLabel}`;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
   doc.text(title, margin, y);
@@ -251,7 +285,7 @@ export async function exportTripPdf(trip: TripDetails) {
   section("Summary");
   ensureSpace(120);
   const summaryLines = [
-    `Trip No.: ${trip.tripNo != null ? String(trip.tripNo) : "—"}`,
+    `Trip No.: ${trip.tripNo != null ? String(trip.tripNo) : "-"}`,
     `Date: ${formatDateOnly(trip.dateISO)}`,
     `Driver: ${safeText(trip.driverName)}`,
     `Truck / Trailer: ${trip.truckId}${trip.trailerId ? ` / ${trip.trailerId}` : ""}`,
@@ -274,7 +308,13 @@ export async function exportTripPdf(trip: TripDetails) {
 
   // 24-hour graph
   ensureSpace(220);
-  const graphH = drawEldDutyGraph({ doc, x: margin, y, w: maxW, dutyTotals: trip.dutyTotals });
+  const graphH = drawEldDutyGraph({
+    doc,
+    x: margin,
+    y,
+    w: maxW,
+    dutyTotals: trip.dutyTotals,
+  });
   y += graphH;
 
   // Daily status totals (as shown on right sidebar)
@@ -307,13 +347,14 @@ export async function exportTripPdf(trip: TripDetails) {
   for (const r of remarks) {
     ensureSpace(28);
     doc.setFont("helvetica", "bold");
-    doc.text(`${r.time}  —  ${r.status}`, margin, y);
+    doc.text(`${r.time}  -  ${r.status}`, margin, y);
     y += 12;
     doc.setFont("helvetica", "normal");
-    doc.text(`${r.location}  •  ${r.description}`, margin, y, { maxWidth: maxW });
+    doc.text(`${r.location}  •  ${r.description}`, margin, y, {
+      maxWidth: maxW,
+    });
     y += 16;
   }
 
   doc.save(`trip-${tripNoLabel}.pdf`);
 }
-

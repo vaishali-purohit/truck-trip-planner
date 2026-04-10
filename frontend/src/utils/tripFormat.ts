@@ -8,14 +8,15 @@ export function formatStop(stop: CityState): string {
   if (city && state) return `${city}, ${state}`;
   if (state) return state;
   if (city) return city;
-  return "—";
+  return "-";
 }
 
 export function parseStop(raw: string): CityState {
   const s = (raw || "").trim();
-  if (!s) return { city: "—", state: "" };
+  if (!s) return { city: "-", state: "" };
   const parts = s.split(",").map((p) => p.trim());
-  if (parts.length >= 2) return { city: parts[0] || "—", state: (parts[1] || "").toUpperCase() };
+  if (parts.length >= 2)
+    return { city: parts[0] || "-", state: (parts[1] || "").toUpperCase() };
   return { city: s, state: "" };
 }
 
@@ -41,6 +42,9 @@ export function formatDateTimeEastern(iso: string): string {
 /** Deterministic-ish date formatting for yyyy-mm-dd. */
 export function formatDateISOShort(dateISO: string): string {
   const dt = new Date(`${dateISO}T00:00:00`);
-  return dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return dt.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
-

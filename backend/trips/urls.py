@@ -1,3 +1,12 @@
+"""
+Trip + location API routes (all under ``/api/`` from config.urls).
+
+- ``POST /api/trip/plan/`` - create a plan (geocode + route + persist).
+- ``GET /api/trip/`` - list saved trips (optional ``?limit=``).
+- ``GET /api/trip/<trip_no>/`` - one trip by numeric ``trip_no``.
+- ``GET /api/locations/search/?q=...`` - geocoder suggestions for the UI.
+"""
+
 from django.urls import path
 
 from .views import (

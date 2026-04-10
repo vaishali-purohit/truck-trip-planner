@@ -132,11 +132,9 @@ describe("TripOverviewPage", () => {
       .closest(".MuiPaper-root");
     expect(routeCard).toBeTruthy();
     const routeForm = within(routeCard as HTMLElement);
-    const comboboxes = routeForm.getAllByRole("combobox");
-    expect(comboboxes).toHaveLength(3);
-    await userEvent.type(comboboxes[0]!, "Chicago, IL");
-    await userEvent.type(comboboxes[1]!, "Chicago, IL");
-    await userEvent.type(comboboxes[2]!, "Denver, CO");
+    await userEvent.type(routeForm.getByLabelText("Current Location"), "Chicago, IL");
+    await userEvent.type(routeForm.getByLabelText("Pickup Location"), "Chicago, IL");
+    await userEvent.type(routeForm.getByLabelText("Drop-off Location"), "Denver, CO");
     await userEvent.clear(routeForm.getByRole("spinbutton"));
     await userEvent.type(routeForm.getByRole("spinbutton"), "10");
 
